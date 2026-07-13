@@ -4,15 +4,18 @@ import JohnnyOFoundationUI
 
 /// Renders the entry list for a day spread, with optional inline spread creation and navigation.
 ///
-/// In compact width the layout is a single scrollable entry list. Calendar events appear
-/// in a dedicated section within the list.
+/// Calendar events are ordinary entries in the list in both size classes — they flow through
+/// the same grouping/sorting pipeline as tasks and notes, so timed work lines up
+/// chronologically under Default sort. [SPRD-308]
+///
+/// In compact width the layout is a single scrollable entry list.
 ///
 /// In regular width the layout is horizontal when events are present:
 /// - Leading: a full-height card containing a `ScrollView` with a full-day `DayTimelineView`.
 ///   All-day events are pinned at the top of the card (outside the scroll). The timed grid
 ///   scrolls independently so the first event is visible on load.
-/// - Trailing: `EntryListView` with its own independent scroll. Calendar events are omitted
-///   from the list because the timeline card already surfaces them.
+/// - Trailing: `EntryListView` with its own independent scroll, complementing the timeline
+///   card rather than replaced by it.
 struct DaySpreadContentView: View {
 
     @State private var viewModel: ViewModel

@@ -148,7 +148,9 @@ extension EntryRowView {
         /// Returns whether the due date label should use urgent styling.
         var isDueDateHighlighted: ((any Entry) -> Bool)?
 
-        /// Returns the subtitle shown below the title (e.g. event time range + calendar name).
+        /// Returns the subtitle shown below the title. Only the multiday peek panel sets
+        /// this today — standard day-list event rows carry no subtitle (title + leading
+        /// scheduled-time block only). [SPRD-308]
         var subtitle: ((any Entry) -> String?)?
 
         // MARK: - Action callbacks
@@ -273,27 +275,18 @@ extension EntryRowView.Configuration {
     }
 
     /// Standard calendar event row configuration shared across periods that surface calendar events.
+    ///
+    /// No `subtitle` — an event row is its title plus the leading scheduled-time block
+    /// (`scheduledStart`/`scheduledEnd`), which already conveys the time range; a subtitle
+    /// duplicated it and added row height. All-day events have no `scheduledStart`, so they
+    /// render title-only. [SPRD-308]
     @MainActor
     static func standardEventConfig(journalManager: JournalManager) -> EntryRowView.Configuration {
-        let calendar = journalManager.configuredCalendar
         let today = journalManager.today
         return EntryRowView.Configuration(
             isGreyedOut: typed(default: false) { (event: DataModel.Event) in
                 (event.calendarEvent?.endDate ?? event.endDate) < today
-            },
-            subtitle: typed { (event: DataModel.Event) -> String? in
-                guard let calEvent = event.calendarEvent else { return nil }
-                if calEvent.isAllDay {
-                    return "All Day · \(calEvent.calendarTitle)"
-                } else {
-                    let fmt = DateFormatter()
-                    fmt.calendar = calendar
-                    fmt.timeZone = calendar.timeZone
-                    fmt.timeStyle = .short
-                    fmt.dateStyle = .none
-                    return "\(fmt.string(from: calEvent.startDate))–\(fmt.string(from: calEvent.endDate)) · \(calEvent.calendarTitle)"
-                }
-            },
+            }
         )
     }
 
