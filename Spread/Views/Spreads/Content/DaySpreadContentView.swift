@@ -24,7 +24,7 @@ struct DaySpreadContentView: View {
     let storedHorizontalSizeClass: UserInterfaceSizeClass?
 
     @AppStorage("entryGrouping.day") private var groupingOption: EntryGroupingOption = .list
-    @AppStorage("entrySorting.day") private var sortingOption: EntrySortOption = .dueDate
+    @AppStorage("entrySorting.day") private var sortingOption: EntrySortOption = .default
 
     init(
         spread: DataModel.Spread,
@@ -59,16 +59,8 @@ struct DaySpreadContentView: View {
                     EntryListOptionsPicker(
                         grouping: groupingOption,
                         sorting: sortingOption,
-                        sortingOptions: EntrySortOption.allCases,
                         onGroupingSelected: { groupingOption = $0 },
-                        onSortingSelected: { newSorting in
-                            sortingOption = newSorting
-                            // Time sort is a single chronological flow — grouping is
-                            // forced off and its submenu disabled while selected. [SPRD-301]
-                            if newSorting == .time {
-                                groupingOption = .none
-                            }
-                        }
+                        onSortingSelected: { sortingOption = $0 }
                     )
                     .padding(SpreadTheme.Spacing.large)
 

@@ -9,7 +9,7 @@ struct MonthSpreadContentView: View {
     let context: SpreadPageContext
 
     @AppStorage("entryGrouping.month") private var groupingOption: EntryGroupingOption = .list
-    @AppStorage("entrySorting.month") private var sortingOption: EntrySortOption = .dueDate
+    @AppStorage("entrySorting.month") private var sortingOption: EntrySortOption = .default
 
     // MARK: - Layout
 

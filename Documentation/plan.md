@@ -7859,7 +7859,7 @@ Release-blocker fixes from `Documentation/mvp-launch.md` §3, surfaced by the pr
 
 Three related day-spread improvements: a deterministic rework of the entry sort options, calendar events integrated into the day entry list, and containing-period open-task cards. Specs: `Documentation/Specs/EntryListGrouping.md` (Sort Hardening section), `Documentation/Specs/DaySpreadComposition.md`.
 
-### [SPRD-307] Refactor: Deterministic sort options — Default chain, real Due Date key - [ ] Pending
+### [SPRD-307] Refactor: Deterministic sort options — Default chain, real Due Date key - [x] Done
 
 - **Context**: SPRD-301's time sort left `EntrySortOption` with six cases, a day-only `.time` case that forces grouping off through a special section-building path, inconsistent title-only tiebreaks, and a "Due Date" option that compares `sortDate` (assigned date ?? created date) — the task's actual `dueDate` field never participates.
 - **Description**: `EntrySortOption` becomes exactly Default / Priority / Due Date / Type (`.manual`, `.title`, `.time` deleted). Default is the comparator chain `scheduledStart` ascending nil-last → title (localized, case-insensitive) → `createdDate`; every other option applies its primary key then falls through the entire Default chain. Due Date keys on the real `dueDate` via a new `Entry`-level accessor (default `nil`, Task returns its stored field), soonest first, nil last. `makeTimeSortedSections`, the "No time" section, the picker's grouping mutual-exclusion, and `universalOptions` are all deleted — Default is a plain within-bucket comparator valid with any grouping on any spread. `@AppStorage("entrySorting.*")` declared defaults become Default; stale persisted raw values fall back automatically. Grouping options are already `none/list/tag/status/type` — untouched.
@@ -7873,6 +7873,9 @@ Three related day-spread improvements: a deterministic rework of the entry sort 
   - AC6: Build succeeds; the SPRD-301 timezone-invariance regression coverage is ported to the Default comparator.
 - **Tests**:
   - Unit tests on the comparator chain in isolation: chain precedence (time beats title beats createdDate), nil-last for `scheduledStart` and `dueDate`, each option's primary key, full-chain fallthrough on Priority/Due Date/Type ties, timezone-invariance of the time step.
+
+**Progress (commits landed on feature/SESH-32)**
+1. **[SPRD-307][1/n]** — `EntrySortOption` reduced to `default`/`priority`/`dueDate`/`type`; `areInOrder` now non-optional, with every option falling through the full Default chain (`scheduledStart` nil-last → localized title → `createdDate`) via `withDefaultTiebreaker`. `Entry` gains the `dueDate: Date?` accessor (default nil, Task's stored field satisfies it); Due Date sorts by it soonest-first/nil-last — fixing the latent bug where the option compared `sortDate` (assigned ?? created date) and never read `dueDate`. Deleted: `.manual`/`.title`/`.time`, `universalOptions`, `makeTimeSortedSections` + the "No time" section, the picker's `sortingOptions` param and Group-By disable, and Day's grouping-forced-to-None handler. All four spreads' `@AppStorage` sorting defaults now `.default` (stale persisted raw values fall back automatically). Tests: new `EntrySortOptionTests` (9 tests — chain precedence, createdDate tiebreak, permutation determinism across all options, real-dueDate nil-last regression, chain fallthrough for Priority/DueDate/Type, timezone-invariance port); superseded `EntryListTimeSortTests` and the old embedded sort suite removed, multiday `.title` test moved to `.default`. Full suite: TEST SUCCEEDED. All ACs ✅ — single-commit task.
 
 ### [SPRD-308] Feature: Calendar events integrated into the day entry list - [ ] Pending
 

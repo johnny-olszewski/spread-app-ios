@@ -12,7 +12,7 @@ struct YearSpreadContentView: View {
     let scrollToTodayToken: Int
 
     @AppStorage("entryGrouping.year") private var groupingOption: EntryGroupingOption = .list
-    @AppStorage("entrySorting.year") private var sortingOption: EntrySortOption = .dueDate
+    @AppStorage("entrySorting.year") private var sortingOption: EntrySortOption = .default
 
     // MARK: - Layout
 

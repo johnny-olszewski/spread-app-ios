@@ -18,7 +18,7 @@ struct MultidaySpreadContentView: View {
     let scrollToTodayToken: Int
 
     @AppStorage("entryGrouping.multiday") private var groupingOption: EntryGroupingOption = .none
-    @AppStorage("entrySorting.multiday") private var sortingOption: EntrySortOption = .dueDate
+    @AppStorage("entrySorting.multiday") private var sortingOption: EntrySortOption = .default
 
     init(
         spread: DataModel.Spread,

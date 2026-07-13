@@ -70,9 +70,11 @@ extension DaySpreadContentView {
         }
 
         /// The view-level configuration map passed to `EntryListView`, covering every type
-        /// a section can contain. Time-sorted sections mix tasks/notes/events in one bucket
-        /// and rely on this fallback (their sections carry no per-section map); grouped
-        /// sections never contain events, so the extra event key is inert there. [SPRD-301]
+        /// a section can contain. Grouped sections never contain events today, so the extra
+        /// event key is inert there.
+        ///
+        /// - TODO: [SPRD-308] Events join every section shape once they flow through the
+        ///   grouping pipeline; this merged map becomes the single resolution path.
         var listConfigurationMap: EntryRowView.ConfigurationMap {
             entryConfigurationMap.merging(eventConfigurationMap) { _, event in event }
         }
@@ -113,9 +115,8 @@ extension DaySpreadContentView {
         /// section — events have no list/tag/status assignment, so they sit outside the
         /// user-selectable grouping entirely, the same way overdue items sit outside it.
         ///
-        /// `.time` sorting takes a different shape entirely: the fixed "Events" section
-        /// dissolves and timed entries of every type interleave chronologically, with
-        /// untimed entries in one "No time" section below — see `makeTimeSortedSections`.
+        /// - TODO: [SPRD-308] The fixed "Events" section is removed — events flow through
+        ///   the same grouping/sorting pipeline as tasks and notes in both size classes.
         static func makeSections(
             from entries: [any Entry],
             spreadDate: Date,
@@ -124,10 +125,6 @@ extension DaySpreadContentView {
             eventConfigurationMap: EntryRowView.ConfigurationMap
         ) -> [EntryList.Section] {
             guard !entries.isEmpty else { return [] }
-
-            if sortingOption == .time {
-                return makeTimeSortedSections(from: entries, spreadDate: spreadDate)
-            }
 
             var regularEntries: [any Entry] = []
             var eventEntries: [any Entry] = []
@@ -157,52 +154,6 @@ extension DaySpreadContentView {
                 ))
             }
 
-            return sections
-        }
-
-        /// Builds the `.time`-sorted shape: one headerless chronological section of all
-        /// timed entries (tasks by `scheduledTime`, `.timed` events by start time,
-        /// interleaved — absolute instants, so the order is timezone-invariant), then one
-        /// "No time" section (`.unnamed` style, per the SPRD-287 nil-bucket convention)
-        /// holding everything untimed, ordered chronologically by `sortDate` with a title
-        /// tiebreak. Sections carry no per-section configuration map — they mix entry
-        /// types, so rows resolve through the view-level `listConfigurationMap`. [SPRD-301]
-        static func makeTimeSortedSections(
-            from entries: [any Entry],
-            spreadDate: Date
-        ) -> [EntryList.Section] {
-            var timedEntries: [any Entry] = []
-            var untimedEntries: [any Entry] = []
-            for entry in entries {
-                if entry.scheduledStart != nil {
-                    timedEntries.append(entry)
-                } else {
-                    untimedEntries.append(entry)
-                }
-            }
-
-            var sections: [EntryList.Section] = []
-            if !timedEntries.isEmpty {
-                sections.append(EntryList.Section(
-                    id: "\(spreadDate.timeIntervalSinceReferenceDate)-timed",
-                    title: "",
-                    date: spreadDate,
-                    entries: EntrySortOption.time.areInOrder.map { timedEntries.sorted(by: $0) } ?? timedEntries,
-                    creationPeriod: .day,
-                    creationDate: spreadDate
-                ))
-            }
-            if !untimedEntries.isEmpty {
-                sections.append(EntryList.Section(
-                    id: "\(spreadDate.timeIntervalSinceReferenceDate)-untimed",
-                    title: "No time",
-                    date: spreadDate,
-                    entries: EntrySortOption.dueDate.areInOrder.map { untimedEntries.sorted(by: $0) } ?? untimedEntries,
-                    creationPeriod: .day,
-                    creationDate: spreadDate,
-                    headerStyle: .unnamed
-                ))
-            }
             return sections
         }
     }

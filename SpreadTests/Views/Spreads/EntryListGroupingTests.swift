@@ -342,7 +342,8 @@ struct EntryListGroupingTests {
 
     /// `sortingOption` orders entries within each day card, even though `groupingOption`
     /// does not subdivide day cards.
-    /// Expected: a day card's entries are ordered alphabetically by title when `sortingOption == .title`.
+    /// Expected: a day card's entries are ordered alphabetically by title (untimed entries
+    /// under the Default chain) when `sortingOption == .default`. [SPRD-307]
     @Test("Multiday day card entries follow sortingOption")
     func multidayDayCardEntriesFollowSortingOption() {
         let startDate = makeDate(year: 2026, month: 1, day: 6)
@@ -359,7 +360,7 @@ struct EntryListGroupingTests {
             endDate: endDate,
             calendar: calendar,
             groupingOption: .none,
-            sortingOption: .title
+            sortingOption: .default
         )
 
         #expect(sections.count == 1)

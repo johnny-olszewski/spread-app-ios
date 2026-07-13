@@ -60,6 +60,13 @@ protocol Entry: Identifiable, Hashable, EntryStatusIconRepresentable {
     /// Only `.timed` events have an end; tasks are instantaneous and return `nil`.
     var scheduledEnd: Date? { get }
 
+    /// The user-assigned due date, if any.
+    ///
+    /// Display/sort accessor following the `scheduledStart` pattern: only `Task` carries a
+    /// due date (satisfied by its stored field); `Note` and `Event` return `nil`. The
+    /// Due Date sort dispatches through this — no per-type downcasting at call sites. [SPRD-307]
+    var dueDate: Date? { get }
+
     // MARK: - Display requirements (default implementations in extension below)
 
     /// Optional one-line body preview shown below the title.
@@ -84,6 +91,7 @@ extension Entry {
     var isTimeAssignable: Bool { false }
     var scheduledStart: Date? { nil }
     var scheduledEnd: Date? { nil }
+    var dueDate: Date? { nil }
 
     /// A stable key identifying this concrete type for use in `EntryRowView.Configuration.Map`.
     ///

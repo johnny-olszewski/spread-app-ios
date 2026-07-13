@@ -162,10 +162,7 @@ extension MultidaySpreadContentView {
             }
 
             func ordered(_ entries: [any Entry]) -> [any Entry] {
-                if let areInOrder = sortingOption.areInOrder {
-                    return entries.sorted(by: areInOrder)
-                }
-                return entries.sorted { $0.sortDate < $1.sortDate }
+                entries.sorted(by: sortingOption.areInOrder)
             }
 
             let start = startDate.startOfDay(calendar: calendar)
