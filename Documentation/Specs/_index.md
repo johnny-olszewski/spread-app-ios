@@ -20,6 +20,7 @@ This index replaces the monolithic `Documentation/spec.md`. Each file below cove
 | `feature/SESH-25` | EntryList generic flat-entries grouping/sorting primitive, shared group-by/order-by picker across all spreads, plus EntryList/EntryRow architecture cleanup | [EntryListGrouping.md](EntryListGrouping.md) |
 | `feature/SESH-29` | Task scheduled time: `scheduledTime` on Task, Supabase sync, migration rules, sheet chip, row time block, integrated Time sort on day spreads | [TaskScheduledTime.md](TaskScheduledTime.md) |
 | `feature/SESH-30` | Release hardening (MVP Workstream A): silent-save-failure fixes, launch error recovery, spread empty states, sync/offline visibility + outbox quarantine, EventKit degradation | [ReleaseHardening.md](ReleaseHardening.md), [ErrorHandling.md](ErrorHandling.md) |
+| `feature/SESH-31` | MVP infrastructure: layered feature flags (Collections hidden as first consumer), hybrid Crashlytics + Supabase observability, Workstream B closeouts (SPRD-268/269/274; SPRD-230 cut) | [FeatureFlags.md](FeatureFlags.md), [Observability.md](Observability.md) |
 | `feature/SESH-32` | Day spread composition: sort-option hardening (deterministic Default chain), events integrated into the day entry list, containing-period open-task cards | [EntryListGrouping.md](EntryListGrouping.md), [DaySpreadComposition.md](DaySpreadComposition.md) |
 
 ---
@@ -56,6 +57,8 @@ This index replaces the monolithic `Documentation/spec.md`. Each file below cove
 | [EntryEditingSheets.md](EntryEditingSheets.md) | Unified `EntrySheet` shell for Task/Note/Spread creation and editing, shared form-model abstraction, CalendarView-backed date selection; SESH-27 visual redesign (SpreadButton pickers, chip clouds, custom header, calendar-embedded spread selection) | SPRD-277–SPRD-282, SPRD-291–SPRD-294 |
 | [ReleaseHardening.md](ReleaseHardening.md) | MVP Workstream A release blockers: silent save-failure surfacing, launch init error recovery, spread empty states, sync/offline visibility + outbox quarantine, EventKit permission degradation | SPRD-302–SPRD-306 |
 | [DaySpreadComposition.md](DaySpreadComposition.md) | Day spread entry-list composition: calendar events integrated as ordinary entries (no subtitle, leading time block), containing multiday/month/year open-task cards below the day list | SPRD-308, SPRD-309 |
+| [FeatureFlags.md](FeatureFlags.md) | Layered feature-flag system: debugOverride → entitlement → buildDefault resolution, EntitlementSource stub seam, DEBUG menu/launch-arg overrides, flag-aware root tab list, Collections hidden as first consumer | SPRD-310 |
+| [Observability.md](Observability.md) | Hybrid observability: Crashlytics crashes/non-fatals, Supabase `analytics_events` table with batched offline queue, ErrorReporting/AnalyticsTracking protocols, v1 no-PII event taxonomy | SPRD-311 |
 
 ---
 

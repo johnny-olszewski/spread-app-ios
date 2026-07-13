@@ -6050,7 +6050,7 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-230] Refactor: Entry edit popover, remove inspector - [ ] Pending
+### [SPRD-230] Refactor: Entry edit popover, remove inspector - [ ] Backlog (cut from MVP scope 2026-07-12; entry editing works via the SESH-27/28 sheet redesign — revisit post-launch)
 
 - **Context**: `RootNavigationView` uses `.inspector()` for all `SpreadsCoordinator.SheetDestination` cases. After SPRD-229, the inspector approach is replaced: task and note detail editing should open as a `.popover` anchored to the Edit swipe-action button with a trailing arrow. Other sheet destinations (creation sheets, spread name edit, etc.) remain as `.sheet`.
 - **Description**: Remove the `.inspector()` modifier from `RootNavigationView`. Wire `TaskDetailSheet` and `NoteDetailSheet` as `.popover(item:arrowEdge:.trailing)` anchored to the swipe-action Edit button on each entry row. All other `SpreadsCoordinator.SheetDestination` cases (spread creation, task creation, note creation, spread name edit, spread date edit, peek data, auth) remain presented as `.sheet`. On compact (iPhone), SwiftUI automatically collapses `.popover` to a sheet — no manual branching needed.
@@ -7913,3 +7913,38 @@ Three related day-spread improvements: a deterministic rework of the entry sort 
 
 **Progress (commits landed on feature/SESH-32)**
 1. **[SPRD-309][1/n]** — Day view model gains `containingPeriodSections(orderedBy:)`: containing multiday spreads via the new testable `containingMultidaySpreads(for:in:calendar:)` scan (inclusive end day, earliest-starting first), month/year via the O(1) keyed `spreadDataModel(for:period:)`, then `makeContainingPeriodSections` builds one `SectionStyle.card(SpreadTheme.Accent.primary)` section per data model holding only `.open` tasks, sorted by the current sort option, titled with `SpreadDisplayNameFormatter(...).primary`, empty spreads omitted. `DaySpreadContentView` renders these in a second `EntryListView` below the day list (standard task config — complete/edit/migrate work in place), absent entirely when no card qualifies. Also corrected the stale `SectionStyle` doc comment (card sections render inline in order, not extracted above the list) and the spec decision that had relied on it. Tests: new `DaySpreadPeriodContextTests` (6 tests — containment scan + inclusive-end boundary, open-only filter + card style, empty-spread omission + order preservation, empty input, per-card sort). Full suite: TEST SUCCEEDED. All ACs ✅ — single-commit task.
+
+## Story: MVP infrastructure — feature flags, observability, closeouts (SESH-31)
+
+Infrastructure bundle from `Documentation/mvp-launch.md` §4/§5/§6.3. New tasks below; the session also picks up existing SPRD-268 (close via calendar-digit exemption per CLAUDE.md's fixed-pixel carve-out + delete commented-out `.font` lines in `EntryRowView`), SPRD-269 (verify Phosphor migration complete, mark Done), and SPRD-274 (overdue card on all spreads), and records the SPRD-230 cut. Note: SPRD-307–309 are claimed by the concurrent Day-spread-composition session (SESH-32) — numbering here starts at 310.
+
+### [SPRD-310] Feature: Layered feature-flag system with Collections hidden as first consumer - [ ] Pending
+
+- **Context**: Collections is out of MVP scope and must be hidden without deleting code; future premium/permission gating needs a seam that won't require rework (`mvp-launch.md` §5, decisions 2026-07-11).
+- **Description**: `FeatureFlag` enum (initial cases `collections`, `events` — the latter migrated from the deleted legacy `FeatureFlags.eventsEnabled` constant) + `FeatureFlagProviding`/`FeatureFlagService` resolving `debugOverride ?? entitlement ?? buildDefault`. `EntitlementSource` protocol stubbed to nil for MVP. DEBUG-only overrides via `AppLaunchConfiguration` launch args and a DebugMenuView "Feature Flags" section persisted to UserDefaults (no `#if DEBUG` in production files — hooks pattern). Service constructed in `AppDependencies` factories, exposed on `AppRuntime`, threaded to `RootNavigationView`; the root tab list becomes instance-computed (mirroring the `BuildInfo.allowsDebugUI` Debug-tab precedent) and excludes Collections when the flag is off. Gating is presentation-only — Collections data continues to sync.
+- **Spec**: `Documentation/Specs/FeatureFlags.md` — Requirements
+- **Acceptance Criteria**:
+  - AC1: `FeatureFlagService` resolution precedence is debugOverride → entitlement → buildDefault, verified for all combinations.
+  - AC2: Release-configuration behavior ignores debug overrides entirely (resolution is entitlement ?? buildDefault).
+  - AC3: With `collections` off, the Collections tab is absent from the root tab list; flipping the DEBUG toggle shows/hides it live without relaunch.
+  - AC4: The legacy `FeatureFlags` enum is deleted; `DebugDataService` reads the injected service for `events`; no behavior change.
+  - AC5: Launch argument override (e.g. `-FeatureFlagOverride collections=on`) works in DEBUG.
+  - AC6: Build succeeds; full suite passes.
+- **Tests**:
+  - Unit tests for resolution precedence (stubbed entitlement + override combinations), the flag-aware tab list including/excluding Collections, and the entitlement stub returning nil for every flag.
+
+### [SPRD-311] Feature: Observability — Crashlytics error reporting + Supabase product analytics - [ ] Pending
+
+- **Context**: TestFlight without telemetry yields anecdotes, not signal; the hardened error surfaces (SPRD-302/303/305) currently report to no one (`mvp-launch.md` §6.3, stack decided 2026-07-12: hybrid).
+- **Description**: `ErrorReporting` and `AnalyticsTracking` protocols injected via `AppDependencies`; `Test*` no-ops for localhost/previews, `Mock*` recorders for tests; active only in production `DataEnvironment`. Crashlytics (SPM, Crashlytics product only; `FirebaseApp.configure()` isolated in the live reporter's bootstrap; dSYM upload phase) receives crashes and non-fatals from every SPRD-302/303/305 error surface plus quarantine transitions. New Supabase `analytics_events` table (insert-only RLS, folded into `baseline_schema.sql` and applied to spread-prod) receives the v1 taxonomy — `session_start`, `spread_created(period)`, `task_created`, `note_created`, `task_completed`, `task_migrated(granularity)`, `time_sort_selected` — via a dedicated persisted batch queue, deliberately separate from the sync outbox. No PII: enum-derived properties only; activation derived server-side.
+- **Spec**: `Documentation/Specs/Observability.md` — Requirements
+- **Acceptance Criteria**:
+  - AC1: Localhost/preview runs construct no-op reporters; nothing is sent from non-production environments.
+  - AC2: Every user-facing error alert from SPRD-302/303 and sync failure/quarantine path from SPRD-305 also calls `ErrorReporting.report` with non-PII context.
+  - AC3: The v1 events are emitted at their trigger points with stable snake_case names and enum-derived properties; no title/body/name/date content in any payload.
+  - AC4: Events buffer offline and flush in batches to `analytics_events` when connectivity allows; a flush failure retries later without affecting product sync.
+  - AC5: `analytics_events` exists in `baseline_schema.sql` with insert-only RLS and is applied to spread-prod.
+  - AC6: Build succeeds; full suite passes.
+- **Tests**:
+  - Unit tests: queue buffering/batch-flush/retry logic with a mock transport; taxonomy name stability; `Mock*` reporter assertions that the SPRD-302 save-failure and SPRD-305 quarantine paths report; no-op wiring for localhost.
+- **Dependencies**: SPRD-310 (shares the `AppDependencies` injection pass; land flags first to avoid factory-churn conflicts)

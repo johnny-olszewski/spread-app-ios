@@ -73,9 +73,9 @@ Half-finished migrations and stragglers found in the audit:
 
 | Item | State | Action |
 | --- | --- | --- |
-| SPRD-268 typography | ~95% done (144 token usages) | Migrate holdouts: `MonthCardView.swift:232/241`, `FullMonthCalendarContentGenerator.swift:131` (or explicitly exempt as fixed-pixel calendar digits per the CLAUDE.md rule); delete commented-out `.font` lines in `EntryRowView.swift:193/204/213`. Close the task. |
-| SPRD-269 Phosphor icons | Done in code (0 `Image(systemName:)` in views) | Verify + mark Done in plan.md. |
-| SPRD-230 entry edit popover | Pending | Decide: in or out of MVP. Recommend: cut unless it blocks daily-driver usability. |
+| SPRD-268 typography | ~95% done (144 token usages) | **Decided 2026-07-12: exempt + close.** The 3 holdouts are fixed-pixel calendar digits (CLAUDE.md carve-out); document exemption at the sites, delete commented-out `.font` lines in `EntryRowView.swift:193/204/213`, mark Done. Executes in SESH-31. |
+| SPRD-269 Phosphor icons | Done in code (0 `Image(systemName:)` in views) | Verify + mark Done in plan.md. Executes in SESH-31. |
+| SPRD-230 entry edit popover | Pending | **Decided 2026-07-12: cut from MVP** — entry editing works via the SESH-27/28 sheet redesign. Re-marked Backlog in plan.md. |
 | SPRD-274 OverdueCardView on all spreads | Pending | In — overdue review is a core BuJo loop and inconsistent surfacing is confusing. |
 | `EntryListView.emptyState` dead code | Never wired | Absorbed into §3.3. |
 | Grouping/sorting prefs | `@AppStorage`, device-local | Decide: acceptable for MVP (recommend yes) or move to synced Settings. Document the decision either way. |
@@ -131,7 +131,7 @@ effectiveValue(flag) = debugOverride(flag)      // DEBUG builds only, UserDefaul
 
 ### 6.3 Error logging and analytics (in MVP — vendor decision pending)
 
-**Requirement** (added 2026-07-11): the MVP ships with crash reporting, error logging, and basic product analytics. Beta feedback without telemetry is anecdotes; the App Store launch needs activation/retention signal. Candidate stacks: Supabase-native, Firebase, or a hybrid.
+**Requirement** (added 2026-07-11): the MVP ships with crash reporting, error logging, and basic product analytics. Beta feedback without telemetry is anecdotes; the App Store launch needs activation/retention signal. **Decided 2026-07-12: the hybrid stack** (Crashlytics + Supabase events), specced as SPRD-311 in `Documentation/Specs/Observability.md` with the v1 event taxonomy — the comparison below is retained for the record.
 
 **What to capture (v1):**
 - **Crashes**: native crash reports with symbolicated stacks.
@@ -209,12 +209,13 @@ Decision deferred by design. When taken: free / subscription / one-time. The §5
 | Session | Bundle | Depends on |
 | --- | --- | --- |
 | SESH-30 | Workstream A hardening: 3.1 save failures, 3.2 init error screen, 3.3 empty states, 3.4 sync/offline surfacing, 3.5 EventKit | — |
-| SESH-31 | Workstream C feature flags + hide Collections; error logging & analytics (§6.3); Workstream B closeouts (268/269/274, dead code) | — |
-| SESH-32 | Repeating tasks (spec session first — largest feature) | SESH-31 (ships behind flag) |
-| SESH-33 | Subtask checklists | SESH-31 |
-| SESH-34 | Reminders/notifications + first-run experience redesign | SESH-32 |
-| SESH-35 | TestFlight prep: accessibility pass, smoke tests, beta plan → **distribute** | SESH-30–33 |
-| SESH-36+ | Beta feedback loop; App Store gate items (§8.2); monetization checkpoint (§8.3) | SESH-35 |
+| SESH-31 | Workstream C feature flags + hide Collections (SPRD-310); error logging & analytics (SPRD-311); Workstream B closeouts (268/269/274; 230 cut) | — |
+| SESH-32 | *(taken by interleaved work: Day spread composition, SPRD-307–309 — not part of this plan's original sequence)* | — |
+| SESH-33 | Repeating tasks (spec session first — largest feature) | SESH-31 (ships behind flag) |
+| SESH-34 | Subtask checklists | SESH-31 |
+| SESH-35 | Reminders/notifications + first-run experience redesign | SESH-33 |
+| SESH-36 | TestFlight prep: accessibility pass, smoke tests, beta plan → **distribute** | SESH-30–34 |
+| SESH-37+ | Beta feedback loop; App Store gate items (§8.2); monetization checkpoint (§8.3) | SESH-36 |
 
 Each feature session begins with `/spread-spec` to produce the spec file + SPRD blocks; this document is the input, not the substitute.
 
@@ -226,7 +227,7 @@ Each feature session begins with `/spread-spec` to produce the spec file + SPRD 
 - Recurrence end conditions in v1 or deferred?
 - Checklist progress display on entry rows: count chip, mini-bar, or sheet-only?
 - Starter content on first run: seeded sample spread vs guided empty-state CTA only?
-- Error logging/analytics stack (§6.3): hybrid Crashlytics + Supabase events (recommended), all-Firebase, or Supabase + MetricKit to avoid Google entirely?
-- Analytics event taxonomy: finalize the v1 event list and property schema before instrumenting (avoid drive-by event sprawl).
+- ~~Error logging/analytics stack (§6.3)~~ — resolved 2026-07-12: hybrid Crashlytics + Supabase events (SPRD-311, `Specs/Observability.md`).
+- ~~Analytics event taxonomy~~ — resolved 2026-07-12: v1 list fixed in `Specs/Observability.md` (7 events, no PII, server-side derivation).
 - Guest-mode question for App Review (AS-05 was cut) — is email-required acceptable friction for launch?
 - Which §6.4 candidates make the App Store cut (reminders recommended; others recommended post-MVP)?
