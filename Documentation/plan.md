@@ -7852,3 +7852,55 @@ Release-blocker fixes from `Documentation/mvp-launch.md` §3, surfaced by the pr
 
 **Progress (commits landed on feature/SESH-30)**
 1. **[SPRD-306][1/n]** — Verification-only close; no code changes required. AC1 ✅: `LiveCalendarEventService.fetchEvents` requests authorization exactly when `.notDetermined`, triggered by `.task(id: spread.id)` on first day/multiday spread access; `NSCalendarsFullAccessUsageDescription` present in Info.plist (the TF-06 missing-purpose-string crash cannot occur). AC2 ✅: denied/restricted → `fetchEvents` returns `[]` → `shouldShowTimelineCard` false → timeline absent (matches the EventKit spec's prescribed degradation); request errors caught, all fetches guarded — no crash path. AC3 ✅: status read live from `EKEventStore` per fetch; navigating back to a day spread re-fetches, no relaunch needed. Deferred (beyond AC): a scenePhase-driven refetch for the sit-on-spread-while-toggling-Settings-access edge. AC4 ✅: suite green (1402). On-device manual pass across the three states (via `xcrun simctl privacy` or Settings) recommended alongside SPRD-304's visual sweep.
+
+---
+
+## Story: Day Spread Composition & Sort Hardening (SESH-32)
+
+Three related day-spread improvements: a deterministic rework of the entry sort options, calendar events integrated into the day entry list, and containing-period open-task cards. Specs: `Documentation/Specs/EntryListGrouping.md` (Sort Hardening section), `Documentation/Specs/DaySpreadComposition.md`.
+
+### [SPRD-307] Refactor: Deterministic sort options — Default chain, real Due Date key - [ ] Pending
+
+- **Context**: SPRD-301's time sort left `EntrySortOption` with six cases, a day-only `.time` case that forces grouping off through a special section-building path, inconsistent title-only tiebreaks, and a "Due Date" option that compares `sortDate` (assigned date ?? created date) — the task's actual `dueDate` field never participates.
+- **Description**: `EntrySortOption` becomes exactly Default / Priority / Due Date / Type (`.manual`, `.title`, `.time` deleted). Default is the comparator chain `scheduledStart` ascending nil-last → title (localized, case-insensitive) → `createdDate`; every other option applies its primary key then falls through the entire Default chain. Due Date keys on the real `dueDate` via a new `Entry`-level accessor (default `nil`, Task returns its stored field), soonest first, nil last. `makeTimeSortedSections`, the "No time" section, the picker's grouping mutual-exclusion, and `universalOptions` are all deleted — Default is a plain within-bucket comparator valid with any grouping on any spread. `@AppStorage("entrySorting.*")` declared defaults become Default; stale persisted raw values fall back automatically. Grouping options are already `none/list/tag/status/type` — untouched.
+- **Spec**: `Documentation/Specs/EntryListGrouping.md` — Sort Hardening: Deterministic Default Chain [SPRD-307]
+- **Acceptance Criteria**:
+  - AC1: The Order By menu shows exactly Default, Priority, Due Date, Type on every spread; no grouping option is ever disabled by a sort selection.
+  - AC2: Default orders timed entries first (chronological by `scheduledStart`), then untimed alphabetically by title, with `createdDate` breaking title ties — output is identical for any input permutation.
+  - AC3: Due Date orders by the task's actual `dueDate` ascending; entries without a due date (including all events/notes) sort after all due-dated ones.
+  - AC4: Priority and Type keep their primary rankings and resolve all ties through the full Default chain.
+  - AC5: `makeTimeSortedSections`, `EntrySortOption.universalOptions`, and the grouping-exclusion logic are deleted; on a day spread with grouping None + Default, timed entries render on top chronologically (SPRD-301 visual preserved, minus the "No time" header).
+  - AC6: Build succeeds; the SPRD-301 timezone-invariance regression coverage is ported to the Default comparator.
+- **Tests**:
+  - Unit tests on the comparator chain in isolation: chain precedence (time beats title beats createdDate), nil-last for `scheduledStart` and `dueDate`, each option's primary key, full-chain fallthrough on Priority/Due Date/Type ties, timezone-invariance of the time step.
+
+### [SPRD-308] Feature: Calendar events integrated into the day entry list - [ ] Pending
+
+- **Context**: Events sit in a fixed trailing "Events" section in compact width and are omitted from the list in regular width (the timeline card shows them), so timed tasks and events never line up in one flow outside the removed `.time` sort.
+- **Description**: Events become ordinary entries in the day list's grouping/sorting pipeline in both size classes — "No list"/"No tag" bucket under list/tag grouping, own bucket under status/type, chronological interleave with timed tasks under Default. The fixed "Events" section and the `shouldShowTimelineCard`-conditional `eventConfigurationMap` suppression are deleted; the regular-width timeline card is unchanged and now complements the list. Event rows render no subtitle — title plus the SPRD-300 leading time block only (all-day events: no block, sort as untimed).
+- **Spec**: `Documentation/Specs/DaySpreadComposition.md` — Events integrated into the day entry list [SPRD-308]
+- **Acceptance Criteria**:
+  - AC1: In both compact and regular width, events appear in the day entry list; in regular width the timeline card still renders alongside.
+  - AC2: Under grouping None + Default sort, a timed task scheduled between two events renders between them.
+  - AC3: Under list/tag grouping, events appear in the "No list"/"No tag" bucket; under status/type grouping they occupy their own bucket. No fixed "Events" section remains.
+  - AC4: Event rows show no subtitle — title and leading start/end time block only; all-day events show no time block.
+  - AC5: Build succeeds; existing day-spread section tests updated for the new shape.
+- **Tests**:
+  - Unit tests on the day view model's section building: events bucketed correctly per grouping option, interleave under Default, no trailing Events section, all-day events sorted as untimed.
+- **Dependencies**: SPRD-307
+
+### [SPRD-309] Feature: Containing-period open-task cards on the day spread - [ ] Pending
+
+- **Context**: Tasks assigned to the containing multiday/month/year spreads are invisible while planning a day, so broader-horizon work drops out of mind unless the user navigates away.
+- **Description**: Below the day's entry list, a second `EntryListView` renders one `SectionStyle.card` section per containing broader-period spread that exists and has open tasks — every `.multiday` spread whose range contains the day, then the containing month, then the year. Cards are titled with the containing spread's display name, contain only open tasks (no notes/events/completed), ordered by the day spread's current sort option with grouping not applied inside cards, and use the standard task row configuration (complete/edit/migrate work in place). Month/year resolve via the O(1) keyed `spreadDataModel(for:period:)`; multiday via a linear containment scan over `spreads`. Nothing renders when no containing spread has open tasks.
+- **Spec**: `Documentation/Specs/DaySpreadComposition.md` — Containing-period open tasks on the day spread [SPRD-309]
+- **Acceptance Criteria**:
+  - AC1: A day contained by an existing month spread with open tasks shows a "July 2026"-style card below the day list holding exactly those open tasks; same for year and each containing multiday spread, ordered multiday → month → year.
+  - AC2: Completed/migrated/cancelled tasks, notes, and events never appear in the cards; a spread with no open tasks (or that doesn't exist) produces no card, and with no qualifying spreads the area renders nothing.
+  - AC3: Tasks inside cards follow the currently selected day-spread sort option; the grouping option has no effect inside cards.
+  - AC4: Completing or migrating a task from a card updates it in place and on its owning spread (standard row actions).
+  - AC5: Spread lookups use the keyed `spreadDataModel(for:period:)` for month/year and a single pass over multiday spreads — no per-entry scans of the full journal.
+  - AC6: Build succeeds; day spread with no containing spreads is visually unchanged.
+- **Tests**:
+  - Unit tests on the card-section builder: open-only filtering, per-period section ordering, multiple containing multiday spreads, omission of empty/missing spreads, sort-option application inside cards.
+- **Dependencies**: SPRD-307

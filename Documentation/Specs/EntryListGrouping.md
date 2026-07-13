@@ -1,8 +1,8 @@
 # EntryList Generic Grouping & Sorting
 
 > **Status**: Draft
-> **SPRD tasks**: SPRD-257, SPRD-258, SPRD-259, SPRD-260, SPRD-261, SPRD-262, SPRD-263, SPRD-264, SPRD-265, SPRD-266, SPRD-287
-> **Session**: SESH-25
+> **SPRD tasks**: SPRD-257, SPRD-258, SPRD-259, SPRD-260, SPRD-261, SPRD-262, SPRD-263, SPRD-264, SPRD-265, SPRD-266, SPRD-287, SPRD-307
+> **Session**: SESH-25, SESH-32
 
 ## Overview
 
@@ -89,6 +89,49 @@ This feature adds a generic flat-entries + group-by + order-by capability to the
 - Nil-bucket labels are renamed per grouping mode — "No list", "No tag", "No status" — replacing the current "Untitled" fallback used for all modes. [SPRD-287]
 - The style applies to all grouping options that can produce a nil bucket: `.list`, `.tag`, and `.status`. `.none` grouping produces no section header and is unaffected. [SPRD-287]
 - The existing `EntryGroupingOption.untitled` constant and `sortedKeysUntitledLast` helper are updated or replaced to match the new per-mode nil labels and remain sorted last. [SPRD-287]
+
+---
+
+## Sort Hardening: Deterministic Default Chain [SPRD-307]
+
+### Overview
+
+Adding scheduled-time-based sorting (SPRD-301) left `EntrySortOption` with six cases, inconsistent tiebreaking, a "Due Date" option that never reads the task's `dueDate` field, and a day-only `.time` case that forces grouping off through a special section-building path. This hardening pass reduces the menu to four options with one fully deterministic comparator chain shared by all of them, unit-tested in isolation.
+
+### Requirements
+
+- `EntrySortOption` cases become exactly: **Default**, **Priority**, **Due Date**, **Type**. `.manual`, `.title`, and `.time` are deleted. [SPRD-307]
+- The **Default** comparator is the chain: `scheduledStart` ascending with non-nil before nil (timed entries first, chronological) → title (localized, case-insensitive, ascending) → `createdDate` ascending. Because every step is a total order and `createdDate` is effectively unique, the chain is fully deterministic — no dependence on `sorted(by:)` input order. [SPRD-307]
+- Every other option applies its primary key, then falls through the **entire** Default chain on ties (time → title → createdDate) — not just a title tiebreak as today. [SPRD-307]
+- **Due Date** keys on the task's actual `dueDate` — ascending, entries without a due date (including all events and notes) after all due-dated ones — replacing the current `sortDate` (assigned date ?? created date) key, which never consulted `dueDate` at all. The `Entry` protocol gains a `dueDate: Date?` display/sort accessor (default `nil`; Task returns its stored field), following the `scheduledStart` accessor pattern. [SPRD-307]
+- **Priority** keeps high-first ranking; **Type** keeps `EntryType` declaration-order ranking. Only their tiebreak chains change. [SPRD-307]
+- The special `.time` layout is removed with the case: `makeTimeSortedSections`, the "No time" section, the grouping mutual-exclusion in `EntryListOptionsPicker`/`DaySpreadContentView`, and `EntrySortOption.universalOptions` are all deleted. Every spread offers the same four options, and Default works within any grouping. Under grouping `.none` on a day spread, Default reproduces the SPRD-301 visual (timed entries on top chronologically, untimed after) without a special path. [SPRD-307]
+- `EntryGroupingOption` is already exactly `none/list/tag/status/type` — no grouping changes in this task. [SPRD-307]
+- All `@AppStorage("entrySorting.*")` declared defaults become Default. Persisted raw values for removed cases (`"manual"`, `"title"`, `"time"`) fail to decode and fall back to the declared default automatically — no migration code needed. [SPRD-307]
+- The comparator chain is unit-tested directly: chain precedence (time beats title beats createdDate), nil-last behavior for Due Date and scheduledStart, per-option primary keys, and full-chain fallthrough for Priority/Due Date/Type ties. [SPRD-307]
+
+### Design Decisions
+
+#### Decision: One shared Default chain instead of per-option ad-hoc tiebreaks
+
+- **Context**: Today `.priority`/`.dueDate`/`.type` tie-break by title only; two same-priority tasks with identical titles land in unspecified order, and `.manual` (preserve input order) exposed the incoming array order as a pseudo-ordering.
+- **Decision**: A single Default comparator chain (scheduledStart → title → createdDate) is the terminal tiebreaker for every option; Default itself is just the chain with no primary key in front.
+- **Rationale**: Deterministic output for any input permutation (createdDate is effectively unique), one comparator to test instead of four, and "Default" gives users the time-aware ordering as the obvious first choice — subsuming what `.manual`, `.title`, and `.time` each half-provided.
+- **SPRD reference**: SPRD-307
+
+#### Decision: Due Date sorts by the real `dueDate`, nil last
+
+- **Context**: The `.dueDate` option compares `Entry.sortDate` = assigned date ?? created date; the task's `dueDate` field (SPRD-234) never participates, so "Due Date" ordering has been wrong since the field existed.
+- **Decision**: Primary key is the actual `dueDate` via a new `Entry`-level accessor, soonest first, no-due-date entries after all due-dated ones, ties through the Default chain.
+- **Rationale**: Matches the only reasonable user expectation of a "Due Date" sort; nil-last keeps actionable due-dated items on top.
+- **SPRD reference**: SPRD-307
+
+#### Decision: Default is a plain comparator — supersedes the SPRD-301 exclusivity model
+
+- **Context**: SPRD-301 made `.time` day-only and mutually exclusive with grouping, building a special two-section layout (timed / "No time") via `makeTimeSortedSections`.
+- **Decision**: Time-awareness lives in the ordinary within-bucket comparator, valid with any grouping on any spread. The special layout, the picker exclusion, and `universalOptions` are deleted. On non-day spreads `scheduledStart` is nil for everything, so Default degrades gracefully to title → createdDate.
+- **Rationale**: Grouping and ordering stay fully orthogonal (the original SPRD-257 design intent); one section-building path instead of two; the day-spread visual under `.none` grouping is preserved by the comparator alone, minus only the "No time" header.
+- **SPRD reference**: SPRD-307 (supersedes the SPRD-301 decision in `TaskScheduledTime.md`)
 
 ### Design Decisions
 

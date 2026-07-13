@@ -85,6 +85,11 @@ A task's scheduled time is an instantaneous point — no duration and no end tim
 
 ### Decision: Time sort is mutually exclusive with grouping; untimed entries below
 
+> **Superseded by SPRD-307** (`EntryListGrouping.md` — Sort Hardening): `.time` is folded into a
+> universal "Default" sort that is a plain within-bucket comparator, valid with any grouping on any
+> spread. The exclusivity rule, `makeTimeSortedSections`, the "No time" section, and
+> `universalOptions` are removed.
+
 - **Context**: Grouping buckets by list/tag/status; a single chronological flow has no buckets, and events have no list/tag/status to group by.
 - **Decision**: Selecting Time forces group-by = None and disables grouping in the picker. Timed entries render chronologically on top; untimed entries follow in one "No time" section. Day spreads only in v1.
 - **Rationale**: A grouped chronology is self-contradictory; making the exclusivity explicit in the picker avoids a silently-ignored setting. Untimed-below keeps the actionable timed plan first.
