@@ -118,6 +118,87 @@ extension DaySpreadContentView {
                 orderedBy: sortingOption.areInOrder
             )
         }
+
+        // MARK: - Containing-Period Context
+
+        /// Card sections for the open tasks of each containing broader-period spread,
+        /// rendered below the day's own entry list — nearest horizon first: every multiday
+        /// spread whose range contains this day, then the containing month, then the year.
+        /// Spreads that don't exist or have no open tasks produce no card. [SPRD-309]
+        ///
+        /// Month/year resolve through the O(1) dictionary-keyed `spreadDataModel(for:period:)`;
+        /// containing multiday spreads through a single scan of `spreads` — no per-entry
+        /// work happens until a spread actually matches.
+        func containingPeriodSections(orderedBy sortingOption: EntrySortOption) -> [EntryList.Section] {
+            let journalManager = context.journalManager
+            let calendar = journalManager.calendar
+            let day = spread.date
+
+            var dataModels: [SpreadDataModel] = Self.containingMultidaySpreads(
+                for: day,
+                in: journalManager.spreads,
+                calendar: calendar
+            ).compactMap { journalManager.spreadDataModel(for: $0.date, period: .multiday) }
+
+            for period in [Period.month, .year] {
+                if let dataModel = journalManager.spreadDataModel(for: day, period: period) {
+                    dataModels.append(dataModel)
+                }
+            }
+
+            let formatter = SpreadDisplayNameFormatter(
+                calendar: calendar,
+                today: journalManager.today,
+                firstWeekday: journalManager.firstWeekday
+            )
+            return Self.makeContainingPeriodSections(
+                from: dataModels,
+                orderedBy: sortingOption,
+                displayName: { formatter.display(for: $0).primary }
+            )
+        }
+
+        /// The multiday spreads whose date range contains `day`, earliest-starting first.
+        /// Start/end are already day-normalized by spread construction; the range is
+        /// inclusive of its end day. [SPRD-309]
+        static func containingMultidaySpreads(
+            for day: Date,
+            in spreads: [DataModel.Spread],
+            calendar: Calendar
+        ) -> [DataModel.Spread] {
+            let normalizedDay = day.startOfDay(calendar: calendar)
+            return spreads
+                .filter { candidate in
+                    guard candidate.period == .multiday,
+                          let start = candidate.startDate, let end = candidate.endDate else { return false }
+                    return start <= normalizedDay && normalizedDay <= end
+                }
+                .sorted { ($0.startDate ?? $0.date) < ($1.startDate ?? $1.date) }
+        }
+
+        /// Builds one `SectionStyle.card` section per data model holding its **open** tasks
+        /// (no notes, events, or completed/migrated/cancelled tasks), ordered by
+        /// `sortingOption`, titled via `displayName`, preserving the caller's data-model
+        /// order. Data models with no open tasks are omitted. [SPRD-309]
+        static func makeContainingPeriodSections(
+            from dataModels: [SpreadDataModel],
+            orderedBy sortingOption: EntrySortOption,
+            displayName: (DataModel.Spread) -> String
+        ) -> [EntryList.Section] {
+            dataModels.compactMap { dataModel in
+                let openTasks: [any Entry] = dataModel.tasks.filter { $0.status == .open }
+                guard !openTasks.isEmpty else { return nil }
+                return EntryList.Section(
+                    id: "period-context-\(dataModel.spread.id)",
+                    title: displayName(dataModel.spread),
+                    date: dataModel.spread.date,
+                    entries: openTasks.sorted(by: sortingOption.areInOrder),
+                    creationPeriod: dataModel.spread.period,
+                    creationDate: dataModel.spread.date,
+                    style: .card(SpreadTheme.Accent.primary)
+                )
+            }
+        }
     }
 }
 

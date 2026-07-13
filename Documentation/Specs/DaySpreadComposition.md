@@ -57,9 +57,9 @@ The day spread is the daily working surface, but its entry list shows a partial 
 
 ### Decision: A second `EntryListView` below the day list, not extra sections inside it
 
-- **Context**: The period cards could be sections appended to the day list's `[EntryList.Section]`, or a separate `EntryListView` stacked below. `EntryListView` extracts `SectionStyle.card` sections and renders them **above** its standard list.
+- **Context**: The period cards could be sections appended to the day list's `[EntryList.Section]`, or a separate `EntryListView` stacked below. (`EntryListView` renders `SectionStyle.card` sections inline in section order — a stale doc comment on `SectionStyle` claiming card sections are extracted above the list does not match the implementation — so either shape renders correctly.)
 - **Decision**: A second `EntryListView` instance below the day's list, containing one card-styled section per containing period. Both lists share the pager-provided scroll (neither owns a `ScrollView`, per the existing rule).
-- **Rationale**: Mixing card sections into the day list would render parent-period tasks *above* the day's entries — the opposite of the intended emphasis. A separate list keeps "the day's own entries" and "context from broader horizons" as distinct units with independent inputs, without touching `EntryListView`'s rendering contract.
+- **Rationale**: The two lists have genuinely independent inputs and behavior: the day list is built from the day's own entries with the user's grouping applied, a quick-add per section, and an empty-state message; the period-card list is built from other spreads' data models, ignores grouping, and disappears entirely when empty. Appending its sections into the day list would couple `makeSections` to parent-spread lookups for no rendering benefit.
 - **SPRD reference**: SPRD-309
 
 ### Decision: Open tasks only

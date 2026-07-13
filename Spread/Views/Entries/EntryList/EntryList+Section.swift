@@ -31,9 +31,9 @@ extension EntryList {
 
     /// Controls the visual chrome applied to a section by `EntryListView`.
     ///
-    /// When `nil` (the default), sections render inside the standard `List`.
-    /// When non-nil, `EntryListView` extracts the section and renders it with
-    /// the specified style above the standard list.
+    /// When `nil` (the default), the section renders with no background chrome.
+    /// When non-nil, the section renders in place — in its position within the
+    /// caller's section order — wrapped in the specified chrome.
     enum SectionStyle {
         /// Renders the section inside a rounded-rectangle card with a low-opacity
         /// fill and solid stroke in the given color.

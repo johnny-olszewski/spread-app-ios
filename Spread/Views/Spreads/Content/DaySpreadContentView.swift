@@ -129,6 +129,19 @@ struct DaySpreadContentView: View {
                             onAddTask: viewModel.onAddTask
                         )
                     }
+
+                    // Open tasks from the containing multiday/month/year spreads, in
+                    // per-period cards below the day's own entries. A separate list keeps
+                    // the day's entries and the broader-horizon context as distinct units
+                    // with independent inputs (and its own empty behavior: absent, not an
+                    // empty state). [SPRD-309]
+                    let periodSections = viewModel.containingPeriodSections(orderedBy: sortingOption)
+                    if !periodSections.isEmpty {
+                        EntryListView(
+                            sections: periodSections,
+                            configurationMap: viewModel.listConfigurationMap
+                        )
+                    }
                 }
             }
             .padding(.horizontal, SpreadTheme.Spacing.large)
