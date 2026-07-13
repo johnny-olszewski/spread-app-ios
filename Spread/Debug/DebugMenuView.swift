@@ -40,6 +40,7 @@ struct DebugMenuView: View {
     var body: some View {
         List {
             buildInfoSection
+            featureFlagsSection
             temporalContextSection
             supabaseSection
             authSection
@@ -61,6 +62,37 @@ struct DebugMenuView: View {
             Text(successMessage)
         }
 
+    }
+
+    // MARK: - Feature Flags Section
+
+    /// Live feature-flag overrides. Toggling persists to `UserDefaults` and updates
+    /// gated UI (e.g. the Collections tab) immediately, since `FeatureFlagService`
+    /// is `@Observable` (SPRD-310). Only shown when the injected provider is the
+    /// concrete overridable service.
+    @ViewBuilder
+    private var featureFlagsSection: some View {
+        if let service = dependencies.featureFlags as? FeatureFlagService {
+            Section {
+                ForEach(FeatureFlag.allCases, id: \.self) { flag in
+                    Toggle(flag.displayName, isOn: Binding(
+                        get: { service.isEnabled(flag) },
+                        set: { service.setOverride($0, for: flag) }
+                    ))
+                }
+                if FeatureFlag.allCases.contains(where: { service.override(for: $0) != nil }) {
+                    Button("Clear Overrides") {
+                        for flag in FeatureFlag.allCases {
+                            service.setOverride(nil, for: flag)
+                        }
+                    }
+                }
+            } header: {
+                Text("Feature Flags")
+            } footer: {
+                Text("Overrides persist on this device and take effect immediately.")
+            }
+        }
     }
 
     // MARK: - Supabase Section

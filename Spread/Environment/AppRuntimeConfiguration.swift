@@ -21,6 +21,10 @@ struct AppRuntimeConfiguration {
     /// Override debug menu view construction for debug builds.
     var makeDebugMenuView: DebugMenuViewFactory?
 
+    /// Override feature-flag service construction (e.g., seeding a debug override store).
+    /// Nil in release — `AppDependencies` then builds a store-less service.
+    var makeFeatureFlags: (@MainActor () -> any FeatureFlagProviding)?
+
     /// Factory for creating the network monitor.
     ///
     /// Defaults to creating a standard `NetworkMonitor`.
