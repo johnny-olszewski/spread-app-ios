@@ -79,6 +79,11 @@ protocol Entry: Identifiable, Hashable, EntryStatusIconRepresentable {
 
     /// The date used to chronologically order this entry within a section.
     var sortDate: Date { get }
+
+    /// An entry-specific tint for the status icon, or `nil` to use the status's default
+    /// color. Only `DataModel.Event` overrides this (with its calendar color); `Task`/`Note`
+    /// use the `nil` default so their rows are unaffected. [SPRD-315]
+    var iconColor: Color? { get }
 }
 
 extension Entry {

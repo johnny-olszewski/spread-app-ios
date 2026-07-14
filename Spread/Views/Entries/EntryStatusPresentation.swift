@@ -25,6 +25,26 @@ extension EntryStatus {
     }
 }
 
+extension Entry {
+
+    /// The status icon's effective tint: an entry-specific `iconColor` (e.g. an event's
+    /// calendar color) takes precedence over the status's default; once the status is
+    /// terminal, an entry-specific tint renders subdued rather than switching to the
+    /// status gray, so e.g. a passed event reads as "dimmed" rather than "flagged" like a
+    /// cancelled task. Entries with no `iconColor` (tasks, notes) are unaffected either way. [SPRD-315]
+    var resolvedIconColor: Color {
+        switch status {
+        case .open, .active, .upcoming:
+            return iconColor ?? status.iconColor
+        case .complete, .migrated, .cancelled:
+            guard let iconColor else { return status.iconColor }
+            return iconColor.opacity(Self.subduedIconOpacity)
+        }
+    }
+
+    private static var subduedIconOpacity: Double { 0.45 }
+}
+
 extension EntryType {
     var statusIconBaseShape: EntryStatusIcon.BaseShape {
         switch self {
