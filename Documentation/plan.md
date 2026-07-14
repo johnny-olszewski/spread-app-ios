@@ -8040,7 +8040,7 @@ Infrastructure bundle from `Documentation/mvp-launch.md` §4/§5/§6.3. New task
 
 ## Story: In Flight task status (SESH-33)
 
-### [SPRD-316] Feature: In Flight task status - [ ] Pending
+### [SPRD-316] Feature: In Flight task status - [ ] In Progress
 
 - **Context**: Users sometimes take the only action available to them on a task (e.g. submit a request-to-leave form at work) and then have nothing left to do, but the task isn't actually complete — it's waiting on an external party or process. Today the only options are Open (looks untouched) or Complete (premature).
 - **Description**: Add `.inFlight` to `EntryStatus`, task-only by the same convention that already scopes `.migrated`/`.active`/`.upcoming` to specific entry types. `EntryStatus.userEditableTaskStatuses` becomes `[.open, .inFlight, .complete, .cancelled]`, read by both the row tap-cycle (`EntryRowView+Configuration.standardTaskConfig`, `OverdueCardView`) and `TaskEntrySheet`'s Status picker — the two row call sites currently re-declare the cycle as a literal array and switch to referencing the shared static instead. Add `SpreadTheme.Icon.airplaneTilt` (Phosphor `Ph.airplaneTilt`, `.regular` weight). Unlike every other status, In Flight is rendered as a full icon replacement, not an overlay-on-circle: `EntryStatusIcon` gains a rendering path that skips the base shape and overlay entirely when a status resolves to an icon override, rendering only the airplane-tilt icon at `.primary` color. In Flight does not set `isGreyedOut`/`inlineChangesAreLocked` — the row stays full-opacity with an editable title, like Open.
@@ -8053,7 +8053,12 @@ Infrastructure bundle from `Documentation/mvp-launch.md` §4/§5/§6.3. New task
   - AC5: In-flight tasks are absent from `overdueTaskItems` and from `migrationCandidates`/`migrationDestination`/`DataModel.Task.migrationOptions` results via their existing `status == .open` gates — no new gating code added, verified by regression test.
   - AC6: The task edit sheet's Status picker shows In Flight as a 4th selectable chip using the airplane-tilt icon; Migrated remains the separate disabled/informational chip.
   - AC7: Build succeeds; all exhaustive `EntryStatus` switches (production and test, including `Entry.resolvedIconColor` from SPRD-315 and the Debug repository list view) handle `.inFlight` explicitly rather than via a new blanket `default:`.
+  - AC8: Supabase `entries_status_check` and `assignments_status_check` accept `'in_flight'` for task rows — widened in `baseline_schema.sql` and applied to spread-prod — so the first push of an in-flight task or assignment succeeds. (Added during pre-implementation audit: assignments carry task status via `reconcilePreferredAssignment`, so both constraints needed widening, not just `entries`.)
 - **Tests**:
   - Rotation order: `.open.rotate(in: EntryStatus.userEditableTaskStatuses)` walks open → inFlight → complete → cancelled → open.
   - Presentation: `.inFlight.overlayShape == nil`; the icon-override resolves to `.airplaneTilt` at `.primary`.
   - Regression: an in-flight task is absent from `overdueTaskItems(tasks:spreads:)` and from `migrationCandidates(tasks:spreads:to:)`.
+
+**Progress (commits landed on feature/SESH-33)**
+1. **[SPRD-316][1/n]** — Supabase schema: widened `entries_status_check` + `assignments_status_check` to accept `'in_flight'` for task rows, in the squashed `baseline_schema.sql`. Applied to spread-prod as migration `add_in_flight_task_status` (additive; 312 entries / 624 assignments verified unaffected, 0 rows violating the new constraint pre-apply; both constraint definitions verified post-apply) and folded into the baseline per convention. Landed first so every later increment can sync safely. Docs: AC8 added to this block + sync-constraint requirement added to the spec (gap discovered in pre-implementation audit — assignments carry task status via `reconcilePreferredAssignment`, so both constraints needed widening). AC8 ✅
+- Remaining for this task: `.inFlight` enum case + exhaustive switches + `airplaneTilt` icon (AC1 partial, AC4, AC7); `EntryStatusIcon` full-replacement rendering path + call sites (AC3); enable via `userEditableTaskStatuses` reorder + shared-array refactor + rotation/exclusion regression tests (AC1, AC2, AC5, AC6).
