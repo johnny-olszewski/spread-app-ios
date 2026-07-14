@@ -83,4 +83,67 @@ struct SpreadsTabViewNavigatorDataTests {
 
         #expect(result.yearSpreads[2026]?.map(\.id) == [first.id, second.id])
     }
+
+    // MARK: - buildYearSpreads ordering (SPRD-314)
+
+    /// A day spread and a multiday spread that start on the same date, passed in day-first
+    /// (the global-list order), then ordered for the pager.
+    /// Expected: the multiday spread — the broader container — comes first.
+    @Test func multidayPrecedesDayOnSameStartDate() {
+        let day = DataModel.Spread(period: .day, date: date(2026, 7, 14), calendar: calendar)
+        let multiday = DataModel.Spread(
+            startDate: date(2026, 7, 14),
+            endDate: date(2026, 7, 20),
+            calendar: calendar
+        )
+
+        // Passed day-first to mirror the incoming global order (day rank < multiday rank).
+        let ordered = SpreadsTabView.buildYearSpreads(
+            spreads: [day, multiday],
+            year: 2026,
+            calendar: calendar
+        )
+
+        #expect(ordered.map(\.id) == [multiday.id, day.id])
+    }
+
+    /// Year, month, multiday, and day spreads all starting on Jan 1, passed in mixed order.
+    /// Expected: broader-container-first ordering — year, month, multiday, day.
+    @Test func sameStartDateOrdersBroaderContainerFirst() {
+        let year = DataModel.Spread(period: .year, date: date(2026, 1, 1), calendar: calendar)
+        let month = DataModel.Spread(period: .month, date: date(2026, 1, 1), calendar: calendar)
+        let day = DataModel.Spread(period: .day, date: date(2026, 1, 1), calendar: calendar)
+        let multiday = DataModel.Spread(
+            startDate: date(2026, 1, 1),
+            endDate: date(2026, 1, 5),
+            calendar: calendar
+        )
+
+        let ordered = SpreadsTabView.buildYearSpreads(
+            spreads: [day, multiday, year, month],
+            year: 2026,
+            calendar: calendar
+        )
+
+        #expect(ordered.map(\.id) == [year.id, month.id, multiday.id, day.id])
+    }
+
+    /// Distinct start dates with periods whose tiebreak rank would reverse them.
+    /// Expected: start-date ascending stays the primary key — the tiebreak only applies on ties.
+    @Test func distinctStartDatesSortByDateNotPeriod() {
+        let earlyDay = DataModel.Spread(period: .day, date: date(2026, 3, 1), calendar: calendar)
+        let laterMultiday = DataModel.Spread(
+            startDate: date(2026, 3, 5),
+            endDate: date(2026, 3, 9),
+            calendar: calendar
+        )
+
+        let ordered = SpreadsTabView.buildYearSpreads(
+            spreads: [laterMultiday, earlyDay],
+            year: 2026,
+            calendar: calendar
+        )
+
+        #expect(ordered.map(\.id) == [earlyDay.id, laterMultiday.id])
+    }
 }

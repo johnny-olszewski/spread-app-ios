@@ -124,7 +124,11 @@ struct SpreadsTabView: View {
         ))
     }
 
-    /// Returns spreads in `year` sorted by start/date ascending.
+    /// Returns spreads in `year` sorted by start/date ascending, breaking start-date ties
+    /// so the broader container renders first — a multiday spread precedes a day spread that
+    /// starts on the same date (the multiday contains the day). Without this tiebreak the sort
+    /// key is start-date only, leaving same-start-date collisions in an undefined order
+    /// (Swift's sort is not guaranteed stable). [SPRD-314]
     ///
     /// A `static` function so it can be called from both `init` and `onChange` handlers
     /// without capturing `self`, and tested directly without a full SwiftUI environment.
@@ -135,7 +139,25 @@ struct SpreadsTabView: View {
     ) -> [DataModel.Spread] {
         spreads
             .filter { calendar.component(.year, from: $0.startDate ?? $0.date) == year }
-            .sorted { ($0.startDate ?? $0.date) < ($1.startDate ?? $1.date) }
+            .sorted { lhs, rhs in
+                let lhsStart = lhs.startDate ?? lhs.date
+                let rhsStart = rhs.startDate ?? rhs.date
+                if lhsStart != rhsStart { return lhsStart < rhsStart }
+                return pagerPeriodTiebreak(lhs.period) < pagerPeriodTiebreak(rhs.period)
+            }
+    }
+
+    /// Broader-container-first period rank for `buildYearSpreads`' same-start-date tiebreak
+    /// only: `year → month → multiday → day`, so a multiday precedes a day it contains.
+    /// Deliberately distinct from the global `year, month, day, multiday` rank
+    /// (`JournalManager.spreadPeriodSortOrder` / `Period.sortOrder`), which is unchanged. [SPRD-314]
+    private static func pagerPeriodTiebreak(_ period: Period) -> Int {
+        switch period {
+        case .year: 0
+        case .month: 1
+        case .multiday: 2
+        case .day: 3
+        }
     }
 
     /// Builds `navigatorCalendarModels` and `navigatorYearSpreads` in a single pass over

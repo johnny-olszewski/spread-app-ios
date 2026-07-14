@@ -7948,6 +7948,21 @@ Three related day-spread improvements: a deterministic rework of the entry sort 
 **Progress (commits landed on feature/SESH-32)**
 1. **[SPRD-313][1/n]** — As described; suite green (1427 = 1430 − 4 parity + 1 direct). Full-suite run required two simulator resets (wedged `iPhone 17 Pro` instance denying app launch — env flake, resolved by pinning the iOS 26.5 device UDID). All ACs ✅ — single-commit task.
 
+### [SPRD-314] Fix: Order multiday before day on the same start date in the pager - [x] Done
+
+- **Context**: User-reported — when a multiday spread and a day spread start on the same date, the pager showed the day spread first; the multiday (the broader container) should precede it.
+- **Description**: `SpreadsTabView.buildYearSpreads` sorted by start-date only, so same-start-date collisions fell to Swift's non-stable sort and preserved the incoming global order (day rank 2 before multiday rank 3). Added a `pagerPeriodTiebreak` (`year, month, multiday, day`) applied only on equal start dates, so the broader container renders first. Scoped to the pager only — the day-disambiguation popover (`SpreadsTabView` covering.sorted, deliberately day-first) and the task-creation spread picker (`Period.sortOrder`) are intentionally left as-is per the user. The global `spreadPeriodSortOrder`/`Period.sortOrder` ranks are untouched.
+- **Spec**: `Documentation/Specs/SpreadNavigation.md` — pager/context-bar ordering
+- **Acceptance Criteria**:
+  - AC1: A day and a multiday sharing a start date order multiday-first in the pager.
+  - AC2: Year/month/multiday/day sharing a start date order broader-first (year, month, multiday, day).
+  - AC3: Distinct start dates still sort by date ascending; the tiebreak only applies on ties.
+  - AC4: Popover and picker ordering unchanged; build + full suite pass.
+- **Tests**: 3 new `SpreadsTabViewNavigatorDataTests` cases (multiday-before-day on tie, four-period broader-first on tie, distinct-dates-sort-by-date).
+
+**Progress (commits landed on feature/SESH-32)**
+1. **[SPRD-314][1/n]** — As described. Full suite green (1430). All ACs ✅ — single-commit task.
+
 ## Story: MVP infrastructure — feature flags, observability, closeouts (SESH-31)
 
 Infrastructure bundle from `Documentation/mvp-launch.md` §4/§5/§6.3. New tasks below; the session also picks up existing SPRD-268 (close via calendar-digit exemption per CLAUDE.md's fixed-pixel carve-out + delete commented-out `.font` lines in `EntryRowView`), SPRD-269 (verify Phosphor migration complete, mark Done), and SPRD-274 (overdue card on all spreads), and records the SPRD-230 cut. Note: SPRD-307–309 are claimed by the concurrent Day-spread-composition session (SESH-32) — numbering here starts at 310.
