@@ -6,7 +6,7 @@ extension EntryStatus {
 
     var overlayShape: EntryStatusIcon.OverlayShape? {
         switch self {
-        case .open, .active, .upcoming:
+        case .open, .active, .upcoming, .inFlight:
             return nil
         case .complete:
             return .xmark
@@ -16,11 +16,21 @@ extension EntryStatus {
             return .slash
         }
     }
-    
+
     var iconColor: Color {
         switch self {
-        case .open, .active, .upcoming: return .primary
+        case .open, .active, .upcoming, .inFlight: return .primary
         case .complete, .migrated, .cancelled: return .secondary
+        }
+    }
+
+    /// A full-replacement icon for statuses that render as a standalone glyph instead of
+    /// the base-shape-plus-overlay composite. Non-nil only for `.inFlight`, which renders
+    /// as the Phosphor airplane-tilt icon with no circle beneath and no overlay. [SPRD-316]
+    var iconOverride: SpreadTheme.Icon? {
+        switch self {
+        case .inFlight: return .airplaneTilt
+        case .open, .active, .complete, .migrated, .cancelled, .upcoming: return nil
         }
     }
 }
@@ -34,7 +44,7 @@ extension Entry {
     /// cancelled task. Entries with no `iconColor` (tasks, notes) are unaffected either way. [SPRD-315]
     var resolvedIconColor: Color {
         switch status {
-        case .open, .active, .upcoming:
+        case .open, .active, .upcoming, .inFlight:
             return iconColor ?? status.iconColor
         case .complete, .migrated, .cancelled:
             guard let iconColor else { return status.iconColor }

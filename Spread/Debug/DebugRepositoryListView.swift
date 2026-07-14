@@ -127,6 +127,7 @@ struct DebugRepositoryListView: View {
         case .complete: return .checkCircleFilled
         case .migrated: return .arrowRightCircle
         case .cancelled: return .xmarkCircle
+        case .inFlight: return .airplaneTilt
         case .upcoming: return .calendar
         }
     }

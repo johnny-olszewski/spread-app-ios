@@ -328,6 +328,7 @@ struct TaskEntrySheet: View {
         switch status {
         case .complete: .checkCircle
         case .cancelled: .xmarkCircle
+        case .inFlight: .airplaneTilt
         default: .circle
         }
     }
