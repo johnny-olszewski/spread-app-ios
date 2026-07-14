@@ -52,7 +52,7 @@ This index replaces the monolithic `Documentation/spec.md`. Each file below cove
 | [Accessibility.md](Accessibility.md) | Accessibility labels, VoiceOver, dynamic type | SPRD-218 |
 | [ErrorHandling.md](ErrorHandling.md) | Error handling UX: auth, sync, network, app init, entry/spread ops; alert infrastructure | SPRD-233 |
 | [ResolvedDecisions.md](ResolvedDecisions.md) | Edge cases resolved, resolved decisions, open questions | — |
-| [EntryComponents.md](EntryComponents.md) | Entry status icon rendering pipeline: EntryStatusIcon, EntryStatusIconRepresentable | SPRD-227, SPRD-270 |
+| [EntryComponents.md](EntryComponents.md) | Entry status icon rendering pipeline: EntryStatusIcon, EntryStatusIconRepresentable; In Flight task status | SPRD-227, SPRD-270, SPRD-316 |
 | [EntryListGrouping.md](EntryListGrouping.md) | EntryList generic grouping/sorting primitive, shared group-by/order-by picker, EntryList/EntryRow cleanup, deterministic Default sort chain | SPRD-257–SPRD-266, SPRD-287, SPRD-307 |
 | [TaskScheduledTime.md](TaskScheduledTime.md) | Optional scheduled time on tasks: `scheduledTime` instant, `isTimeAssignable` capability flag, day-period gating, Supabase `scheduled_time` sync, sheet chip, row time block, integrated Time sort on day spreads | SPRD-296–SPRD-301 |
 | [EntryEditingSheets.md](EntryEditingSheets.md) | Unified `EntrySheet` shell for Task/Note/Spread creation and editing, shared form-model abstraction, CalendarView-backed date selection; SESH-27 visual redesign (SpreadButton pickers, chip clouds, custom header, calendar-embedded spread selection) | SPRD-277–SPRD-282, SPRD-291–SPRD-294 |

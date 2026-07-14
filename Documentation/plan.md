@@ -8035,3 +8035,25 @@ Infrastructure bundle from `Documentation/mvp-launch.md` §4/§5/§6.3. New task
 3. **[SPRD-315][3/n]** — Calendar-color tint. `Entry.iconColor` promoted from an extension-only default to a protocol requirement (the existing `DataModel.Event` override was previously unreachable through `any Entry`, since static dispatch bound to the default). New `Entry.resolvedIconColor` in `EntryStatusPresentation.swift`: non-terminal statuses use `iconColor ?? status.iconColor`; terminal statuses use a subdued (`.opacity(0.45)`) `iconColor` when the entry provides one, else `status.iconColor` — so tasks/notes (`iconColor == nil`) are pixel-identical to before. `EntryRowView.statusButton` now feeds both base and overlay configs from `resolvedIconColor`; title text untouched (still `status.iconColor`). 2 new previews ("Event - Calendar Tint (Upcoming/Passed)") plus 5 tests in `EntryResolvedIconColorTests` (event full tint, event subdued tint, task/cancelled-task/stored-event fallback). Full suite: 1428 green. Covers AC1, tint half of AC2/AC3, AC5.
 - Visual verification not done live in this session — the only available Xcode window was on a different worktree/branch, actively running the app on a physical device, so I didn't risk driving it. Recommend opening `EntryRowView.swift`'s two new previews in this worktree to confirm the tint/subdued colors read correctly before merging.
 - Visual verification completed manually on 2026-07-14: tint/subdued colors and unchanged task/note rows confirmed. All ACs ✅ — task complete.
+
+---
+
+## Story: In Flight task status (SESH-33)
+
+### [SPRD-316] Feature: In Flight task status - [ ] Pending
+
+- **Context**: Users sometimes take the only action available to them on a task (e.g. submit a request-to-leave form at work) and then have nothing left to do, but the task isn't actually complete — it's waiting on an external party or process. Today the only options are Open (looks untouched) or Complete (premature).
+- **Description**: Add `.inFlight` to `EntryStatus`, task-only by the same convention that already scopes `.migrated`/`.active`/`.upcoming` to specific entry types. `EntryStatus.userEditableTaskStatuses` becomes `[.open, .inFlight, .complete, .cancelled]`, read by both the row tap-cycle (`EntryRowView+Configuration.standardTaskConfig`, `OverdueCardView`) and `TaskEntrySheet`'s Status picker — the two row call sites currently re-declare the cycle as a literal array and switch to referencing the shared static instead. Add `SpreadTheme.Icon.airplaneTilt` (Phosphor `Ph.airplaneTilt`, `.regular` weight). Unlike every other status, In Flight is rendered as a full icon replacement, not an overlay-on-circle: `EntryStatusIcon` gains a rendering path that skips the base shape and overlay entirely when a status resolves to an icon override, rendering only the airplane-tilt icon at `.primary` color. In Flight does not set `isGreyedOut`/`inlineChangesAreLocked` — the row stays full-opacity with an editable title, like Open.
+- **Spec**: `Documentation/Specs/EntryComponents.md` — In Flight Task Status
+- **Acceptance Criteria**:
+  - AC1: `EntryStatus` has a `.inFlight` case; `EntryStatus.userEditableTaskStatuses` is `[.open, .inFlight, .complete, .cancelled]`.
+  - AC2: Tapping a task row's status icon cycles `open → inFlight → complete → cancelled → open`; `EntryRowView+Configuration.standardTaskConfig`, `OverdueCardView`, and `TaskEntrySheet`'s Status picker all read the same `userEditableTaskStatuses` array (no re-declared literal arrays remain).
+  - AC3: The in-flight status icon renders only the airplane-tilt Phosphor icon at `.primary` color — no base circle drawn behind it, no overlay shape composited on top.
+  - AC4: An in-flight task row is not greyed out and its title remains editable (`isGreyedOut`/`inlineChangesAreLocked` both false), matching open/active treatment.
+  - AC5: In-flight tasks are absent from `overdueTaskItems` and from `migrationCandidates`/`migrationDestination`/`DataModel.Task.migrationOptions` results via their existing `status == .open` gates — no new gating code added, verified by regression test.
+  - AC6: The task edit sheet's Status picker shows In Flight as a 4th selectable chip using the airplane-tilt icon; Migrated remains the separate disabled/informational chip.
+  - AC7: Build succeeds; all exhaustive `EntryStatus` switches (production and test, including `Entry.resolvedIconColor` from SPRD-315 and the Debug repository list view) handle `.inFlight` explicitly rather than via a new blanket `default:`.
+- **Tests**:
+  - Rotation order: `.open.rotate(in: EntryStatus.userEditableTaskStatuses)` walks open → inFlight → complete → cancelled → open.
+  - Presentation: `.inFlight.overlayShape == nil`; the icon-override resolves to `.airplaneTilt` at `.primary`.
+  - Regression: an in-flight task is absent from `overdueTaskItems(tasks:spreads:)` and from `migrationCandidates(tasks:spreads:to:)`.
