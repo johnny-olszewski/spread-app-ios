@@ -8065,3 +8065,28 @@ Infrastructure bundle from `Documentation/mvp-launch.md` §4/§5/§6.3. New task
 3. **[SPRD-316][3/n]** — `EntryStatusIcon` full-replacement rendering: new defaulted `iconOverride: SpreadTheme.Icon?` parameter; when non-nil the body renders only the override glyph (sized/tinted with the same `bseeShapeConfig` fallbacks the base shape uses) — no base circle beneath, no overlay composited. Threaded `status.iconOverride` through the three call sites that show real task statuses (`EntryRowView.statusButton`, `TaskEntrySheet.assignmentHistorySection` — assignments carry task statuses via `reconcilePreferredAssignment` — and `TaskSearchView`); `SpreadPeekPanelView` untouched (hardcodes `.open`, covered by the parameter default). "In Flight" row added to the Task Statuses preview. AC3 ✅
 4. **[SPRD-316][4/n]** — Enable: `userEditableTaskStatuses` → `[.open, .inFlight, .complete, .cancelled]`, doc-commented as the single source of truth whose order IS the tap-cycle order; the two hardcoded `[.open, .complete, .cancelled]` literals (`standardTaskConfig.onStatusIconTap`, `OverdueCardView.handleStatusIconTap`) now read the shared static — verified no other cycle literal remains; the sheet's Status picker picks up the 4th chip automatically. Tests: full tap-cycle walk incl. wraparound (`EntryStatusTests`), updated 4-element picker expectation (`EntryStatusPresentationTests`), overdue-exclusion regression (`OverdueTaskTests` — in-flight task with past-due day assignment absent from `overdueTaskItems`), migration-exclusion regression (`MigrationEligibilityTests` — in-flight task never a candidate). Full suite: 1434 tests / 143 suites green. AC1 ✅ AC2 ✅ AC5 ✅ AC6 ✅ — all ACs done, task complete.
 - Manual visual check recommended: `EntryStatusIcon.swift`'s "Task Statuses" preview (new In Flight row) and a live task row cycled to In Flight, in both color schemes.
+
+---
+
+## Story: Review panel — Inbox / In Flight / Overdue (SESH-33)
+
+### [SPRD-317] Feature: Segmented review panel: Inbox / In Flight / Overdue - [ ] Pending
+
+- **Context**: The SPRD-289 pull-down panel above the pager only shows overdue tasks. Inbox tasks and the new In Flight tasks (SPRD-316) are equally "needs review outside any one spread" collections with no equivalent surface.
+- **Description**: Generalize the pull-down panel into a three-segment review surface with a custom segmented control (segments in order: Inbox, In Flight, Overdue, each labeled with its live count; session-scoped last-selection memory). The toggle button becomes always-visible with a new `SpreadTheme.Icon.listBullets` icon (replacing `clockCountdown`); the auto-close-on-empty behavior is removed and empty segments render an empty state. Overdue segment is the existing `OverdueCardView` unchanged. In Flight segment shows all `.inFlight` tasks grouped by source spread/Inbox via a new `JournalManager` accessor reusing `TaskReviewSourceKey`, with overdue-style read-only rows (tap navigates; status icon cycles with the 5-second grace period). Inbox segment shows inbox tasks only (notes excluded); row tap opens `TaskEntrySheet` for in-place triage; status icon cycles with the grace period. An in-flight task never double-appears: In Flight wins over both Overdue (existing `.open` gate) and Inbox (unassigned in-flight tasks show only under In Flight).
+- **Spec**: `Documentation/Specs/SpreadNavigation.md` — Review Panel: Inbox / In Flight / Overdue [SPRD-317]
+- **Acceptance Criteria**:
+  - AC1: The panel shows a segmented control with Inbox / In Flight / Overdue in that order, each segment labeled with its live item count.
+  - AC2: The toggle button is always visible with the new `listBullets` Phosphor icon; opening reveals the panel via the existing SPRD-289 slide mechanics; last-viewed segment is restored within the session.
+  - AC3: Empty segments remain selectable and show an empty-state message; the panel no longer auto-closes when collections empty.
+  - AC4: In Flight segment lists all `.inFlight` tasks grouped by source spread/Inbox; row tap navigates to the source spread (notice for Inbox-origin); status-icon tap cycles status with the grace period.
+  - AC5: Inbox segment lists inbox tasks only (no notes); row tap opens `TaskEntrySheet`; status-icon tap cycles with the grace period.
+  - AC6: Overdue segment behavior is unchanged from SPRD-289/SPRD-316.
+  - AC7: No double-appearance: an in-flight task appears only under In Flight — absent from Overdue and from Inbox even when unassigned.
+  - AC8: Build succeeds; existing overdue-panel and entry-list tests pass.
+- **Tests**:
+  - Unit tests for the in-flight items accessor: collection + source-key grouping, and exclusion of non-in-flight statuses.
+  - Unit test for inbox segment derivation: tasks only, notes excluded; unassigned in-flight task excluded (AC7).
+  - Unit test for per-segment counts matching derived collections.
+  - Control styling, empty states, and reveal animation verified via previews/manual inspection.
+- **Dependencies**: SPRD-316
