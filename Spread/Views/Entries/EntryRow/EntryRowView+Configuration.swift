@@ -212,7 +212,7 @@ extension EntryRowView.Configuration {
                 guard let task = entry as? DataModel.Task else { return }
                 
                 Task { @MainActor in
-                    let newStatus: EntryStatus = task.status.rotate(in: [.open, .complete, .cancelled])
+                    let newStatus: EntryStatus = task.status.rotate(in: EntryStatus.userEditableTaskStatuses)
                     try? await journalManager.updateTaskStatus(task, newStatus: newStatus)
                     await syncEngine?.syncNow()
                 }

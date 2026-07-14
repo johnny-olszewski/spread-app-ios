@@ -72,8 +72,11 @@ extension EntryType {
 
 extension EntryStatus {
 
+    /// The single source of truth for user-editable task statuses, used by BOTH the row
+    /// status-icon tap cycle and the task sheet's Status picker. The order IS the tap-cycle
+    /// order: open → inFlight → complete → cancelled → wraps to open. [SPRD-316]
     static var userEditableTaskStatuses: [EntryStatus] {
-        [.open, .complete, .cancelled]
+        [.open, .inFlight, .complete, .cancelled]
     }
 
     // MARK: Task sheet interaction

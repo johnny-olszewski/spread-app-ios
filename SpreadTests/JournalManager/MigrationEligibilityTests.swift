@@ -47,6 +47,38 @@ struct MigrationEligibilityTests {
         #expect(dayCandidates.isEmpty)
     }
 
+    /// Conditions: A month-desired task is `.inFlight` (both task.status and its year-spread
+    /// assignment status) while both month and day spreads exist — otherwise identical to
+    /// `monthDesiredTaskStopsAtMonthSpread`, which shows an `.open` task of the same shape
+    /// stops at the month spread.
+    /// Expected: `migrationCandidates(to: monthSpread)` is empty — in-flight tasks are never
+    /// migration candidates, since migration eligibility requires `.open`.
+    @Test @MainActor func inFlightTaskIsNeverAMigrationCandidate() async throws {
+        let taskDate = makeDate(year: 2026, month: 1, day: 10)
+        let yearSpread = DataModel.Spread(period: .year, date: taskDate, calendar: Self.calendar)
+        let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: Self.calendar)
+        let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: Self.calendar)
+
+        let task = DataModel.Task(
+            title: "In flight month task",
+            date: taskDate,
+            period: .month,
+            status: .inFlight,
+            currentAssignments: [
+                Assignment(period: .year, date: taskDate, status: .inFlight)
+            ]
+        )
+
+        let manager = try await JournalManager(
+            calendar: Self.calendar,
+            today: taskDate,
+            taskRepository: TestTaskRepository(tasks: [task]),
+            spreadRepository: TestSpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
+        )
+
+        #expect(manager.migrationCandidates(to: monthSpread).isEmpty)
+    }
+
     /// Conditions: A day-desired task is open on the year spread while both month and day spreads exist.
     /// Expected: Only the day spread prompts because it is the most granular valid destination.
     @Test @MainActor func dayDesiredTaskUsesMostGranularExistingDestination() async throws {

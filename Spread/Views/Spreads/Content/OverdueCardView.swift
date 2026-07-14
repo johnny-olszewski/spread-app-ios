@@ -49,11 +49,11 @@ struct OverdueCardView: View {
 
     // MARK: - Status Icon Handling
 
-    /// Rotates `task`'s status (open → complete → cancelled → open) and, when it leaves `open`,
-    /// keeps it showing in the card for a 5-second grace period rather than letting it vanish
-    /// the instant it drops out of `overdueTaskItems`.
+    /// Rotates `task`'s status through `EntryStatus.userEditableTaskStatuses` and, when it
+    /// leaves `open`, keeps it showing in the card for a 5-second grace period rather than
+    /// letting it vanish the instant it drops out of `overdueTaskItems`.
     private func handleStatusIconTap(task: DataModel.Task) {
-        let newStatus = task.status.rotate(in: [.open, .complete, .cancelled])
+        let newStatus = task.status.rotate(in: EntryStatus.userEditableTaskStatuses)
 
         if newStatus == .open {
             graceExpirations.removeValue(forKey: task.id)

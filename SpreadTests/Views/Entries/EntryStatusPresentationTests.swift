@@ -5,7 +5,7 @@ import Testing
 struct EntryStatusPresentationTests {
 
     @Test func userEditableTaskStatusesExcludeMigrated() {
-        #expect(EntryStatus.userEditableTaskStatuses == [.open, .complete, .cancelled])
+        #expect(EntryStatus.userEditableTaskStatuses == [.open, .inFlight, .complete, .cancelled])
     }
 
     /// Conditions: `.inFlight` is a new task-only status (SPRD-316) rendered as a
