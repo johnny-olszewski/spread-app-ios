@@ -81,7 +81,7 @@ struct SpreadContentPagerView: View {
                 }
 
             ZStack(alignment: .top) {
-                OverdueCardView(context: context)
+                TaskReviewCardView(context: context, collection: .overdue)
                     .opacity(isOverduePanelOpen ? 1 : 0)
                     .padding(.horizontal, SpreadTheme.Spacing.large)
                     .padding(.bottom, SpreadTheme.Spacing.medium)

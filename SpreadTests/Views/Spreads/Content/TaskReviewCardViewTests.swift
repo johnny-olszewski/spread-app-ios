@@ -3,7 +3,7 @@ import Testing
 @testable import Spread
 
 @Suite(.serialized)
-struct OverdueCardViewTests {
+struct TaskReviewCardViewTests {
 
     private static var testCalendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
@@ -54,7 +54,7 @@ struct OverdueCardViewTests {
         let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
         let context = try await Self.makeContext(today: today, tasks: [task], spreads: [spread])
 
-        let sections = OverdueCardView.sections(context: context)
+        let sections = TaskReviewCardView.sections(context: context, collection: .overdue)
 
         #expect(sections.count == 1)
         #expect(sections.first?.entries.map(\.id) == [task.id])
@@ -75,7 +75,7 @@ struct OverdueCardViewTests {
         )
         let context = try await Self.makeContext(today: today, tasks: [task])
 
-        #expect(!OverdueCardView.sections(context: context).isEmpty)
+        #expect(!TaskReviewCardView.sections(context: context, collection: .overdue).isEmpty)
     }
 
     // MARK: - Month
@@ -96,7 +96,7 @@ struct OverdueCardViewTests {
         let thisMonthSpread = DataModel.Spread(period: .month, date: today, calendar: Self.testCalendar)
         let context = try await Self.makeContext(today: today, tasks: [task], spreads: [thisMonthSpread])
 
-        let sections = OverdueCardView.sections(context: context)
+        let sections = TaskReviewCardView.sections(context: context, collection: .overdue)
 
         #expect(sections.count == 1)
         #expect(sections.first?.entries.map(\.id) == [task.id])
@@ -108,7 +108,7 @@ struct OverdueCardViewTests {
         let today = Self.date(2026, 2, 15)
         let context = try await Self.makeContext(today: today)
 
-        #expect(OverdueCardView.sections(context: context).isEmpty)
+        #expect(TaskReviewCardView.sections(context: context, collection: .overdue).isEmpty)
     }
 
     // MARK: - Year
@@ -129,7 +129,7 @@ struct OverdueCardViewTests {
         let thisYearSpread = DataModel.Spread(period: .year, date: today, calendar: Self.testCalendar)
         let context = try await Self.makeContext(today: today, tasks: [task], spreads: [thisYearSpread])
 
-        let sections = OverdueCardView.sections(context: context)
+        let sections = TaskReviewCardView.sections(context: context, collection: .overdue)
 
         #expect(sections.count == 1)
         #expect(sections.first?.entries.map(\.id) == [task.id])
@@ -141,7 +141,7 @@ struct OverdueCardViewTests {
         let today = Self.date(2027, 1, 1)
         let context = try await Self.makeContext(today: today)
 
-        #expect(OverdueCardView.sections(context: context).isEmpty)
+        #expect(TaskReviewCardView.sections(context: context, collection: .overdue).isEmpty)
     }
 
     // MARK: - Multiday
@@ -166,7 +166,7 @@ struct OverdueCardViewTests {
         )
         let context = try await Self.makeContext(today: today, tasks: [task], spreads: [multidaySpread])
 
-        let sections = OverdueCardView.sections(context: context)
+        let sections = TaskReviewCardView.sections(context: context, collection: .overdue)
 
         #expect(sections.count == 1)
         #expect(sections.first?.entries.map(\.id) == [task.id])
@@ -195,8 +195,8 @@ struct OverdueCardViewTests {
         let startContext = try await Self.makeContext(today: startBoundaryToday, tasks: [task], spreads: [multidaySpread])
         let endContext = try await Self.makeContext(today: endBoundaryToday, tasks: [task], spreads: [multidaySpread])
 
-        #expect(!OverdueCardView.sections(context: startContext).isEmpty)
-        #expect(!OverdueCardView.sections(context: endContext).isEmpty)
+        #expect(!TaskReviewCardView.sections(context: startContext, collection: .overdue).isEmpty)
+        #expect(!TaskReviewCardView.sections(context: endContext, collection: .overdue).isEmpty)
     }
 
     /// Setup: no overdue tasks in the journal.
@@ -205,7 +205,7 @@ struct OverdueCardViewTests {
         let today = Self.date(2026, 8, 1)
         let context = try await Self.makeContext(today: today)
 
-        #expect(OverdueCardView.sections(context: context).isEmpty)
+        #expect(TaskReviewCardView.sections(context: context, collection: .overdue).isEmpty)
     }
 
     // MARK: - Empty overdue items
@@ -217,7 +217,7 @@ struct OverdueCardViewTests {
         let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
         let context = try await Self.makeContext(today: today, spreads: [spread])
 
-        #expect(OverdueCardView.sections(context: context).isEmpty)
+        #expect(TaskReviewCardView.sections(context: context, collection: .overdue).isEmpty)
     }
 
     // MARK: - Read-only row configuration
@@ -238,7 +238,7 @@ struct OverdueCardViewTests {
         let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
         let context = try await Self.makeContext(today: today, tasks: [task], spreads: [spread])
 
-        let section = try #require(OverdueCardView.sections(context: context).first)
+        let section = try #require(TaskReviewCardView.sections(context: context, collection: .overdue).first)
         let configuration = try #require(section.configurationMap?[DataModel.Task.configurationKey])
 
         #expect(configuration.onTitleCommit == nil)
@@ -263,7 +263,7 @@ struct OverdueCardViewTests {
         let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
         let context = try await Self.makeContext(today: today, tasks: [task], spreads: [spread, sourceSpread])
 
-        let section = try #require(OverdueCardView.sections(context: context).first)
+        let section = try #require(TaskReviewCardView.sections(context: context, collection: .overdue).first)
         let configuration = try #require(section.configurationMap?[DataModel.Task.configurationKey])
 
         configuration.onRowTap?(task)
@@ -275,7 +275,7 @@ struct OverdueCardViewTests {
     /// Setup: the configuration built by `sections(...)` for a custom `onStatusIconTap` closure.
     /// Expected: the exact closure passed in is wired to `onStatusIconTap` -- the status icon
     /// remains fully interactive (no built-in confirmation/alert at this layer); the calling
-    /// view (`OverdueCardView.body`) owns the actual rotate + grace-period behavior.
+    /// view (`TaskReviewCardView.body`) owns the actual rotate + grace-period behavior.
     @MainActor @Test func statusIconTapUsesTheSuppliedClosure() async throws {
         let today = Self.date(2026, 1, 12)
         let overdueDate = Self.date(2026, 1, 10)
@@ -291,8 +291,9 @@ struct OverdueCardViewTests {
 
         var tappedEntryIDs: [UUID] = []
         let section = try #require(
-            OverdueCardView.sections(
+            TaskReviewCardView.sections(
                 context: context,
+                collection: .overdue,
                 onStatusIconTap: { entry in tappedEntryIDs.append(entry.id) }
             ).first
         )
@@ -324,8 +325,9 @@ struct OverdueCardViewTests {
         let context = try await Self.makeContext(today: today, tasks: [completedTask], spreads: [spread])
         let snapshotKey = TaskReviewSourceKey(kind: .spread(id: spread.id, period: .day, date: overdueDate))
 
-        let sections = OverdueCardView.sections(
+        let sections = TaskReviewCardView.sections(
             context: context,
+            collection: .overdue,
             graceTaskIDs: [completedTask.id],
             graceSourceKeys: [completedTask.id: snapshotKey]
         )
@@ -347,8 +349,9 @@ struct OverdueCardViewTests {
         let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
         let context = try await Self.makeContext(today: today, spreads: [spread])
 
-        let sections = OverdueCardView.sections(
+        let sections = TaskReviewCardView.sections(
             context: context,
+            collection: .overdue,
             graceTaskIDs: [UUID()]
         )
 
@@ -371,8 +374,9 @@ struct OverdueCardViewTests {
         let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
         let context = try await Self.makeContext(today: today, tasks: [task], spreads: [spread])
 
-        let sections = OverdueCardView.sections(
+        let sections = TaskReviewCardView.sections(
             context: context,
+            collection: .overdue,
             graceTaskIDs: [task.id]
         )
 
@@ -415,7 +419,7 @@ struct OverdueCardViewTests {
         let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
         let context = try await Self.makeContext(today: today, tasks: [taskC, taskA, taskB], spreads: [spread])
 
-        let sections = OverdueCardView.sections(context: context)
+        let sections = TaskReviewCardView.sections(context: context, collection: .overdue)
 
         #expect(sections.first?.entries.map(\.title) == ["A", "B", "C"])
     }
@@ -450,7 +454,7 @@ struct OverdueCardViewTests {
         let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
         let context = try await Self.makeContext(today: today, tasks: [dayTask, monthTask], spreads: [spread])
 
-        let sections = OverdueCardView.sections(context: context)
+        let sections = TaskReviewCardView.sections(context: context, collection: .overdue)
 
         #expect(sections.first?.entries.map(\.title) == ["Month task", "Day task"])
     }
@@ -485,8 +489,9 @@ struct OverdueCardViewTests {
             spreads: [spread]
         )
 
-        let sections = OverdueCardView.sections(
+        let sections = TaskReviewCardView.sections(
             context: context,
+            collection: .overdue,
             graceTaskIDs: [justCompletedTask.id]
         )
 
@@ -507,7 +512,7 @@ struct OverdueCardViewTests {
         let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
         let context = try await Self.makeContext(today: today, tasks: [task], spreads: [spread])
 
-        let section = try #require(OverdueCardView.sections(context: context).first)
+        let section = try #require(TaskReviewCardView.sections(context: context, collection: .overdue).first)
         let configuration = try #require(section.configurationMap?[DataModel.Task.configurationKey])
 
         configuration.onRowTap?(task)

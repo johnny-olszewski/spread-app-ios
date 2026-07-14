@@ -2,21 +2,24 @@ import SwiftUI
 import JohnnyOFoundationCore
 import JohnnyOFoundationUI
 
-/// A card-styled overdue-task review surface rendered above `SpreadContentPagerView`.
+/// A card-styled task review surface rendered above `SpreadContentPagerView`, parameterized
+/// by a `TaskReviewCollection` (which items it shows, and its card title/color).
 ///
-/// Renders nothing when there are no overdue (or grace-period) tasks. Renders one
-/// `EntryList.Section` per distinct source spread (or Inbox) inside the existing `EntryListView`
-/// + `EntryList.Section.Style.card` mechanism — no new visual chrome.
+/// Renders nothing when the collection has no live (or grace-period) tasks — empty-state
+/// chrome belongs to the hosting panel, not the card. Renders one `EntryList.Section` inside
+/// the existing `EntryListView` + `EntryList.Section.Style.card` mechanism — no new visual
+/// chrome.
 ///
 /// The status icon is fully interactive here, rotating status the same way it does everywhere
-/// else (open → complete → cancelled → open). Since marking a task complete/cancelled would
-/// otherwise make it vanish from `overdueTaskItems` — and therefore from this card — immediately
-/// under the user's finger, tapped tasks get a 5-second grace period (`graceExpirations`) during
-/// which they keep showing here even though they're no longer "live" overdue items. Tapping
-/// again within that window (e.g. complete → cancelled) restarts the 5 seconds.
-struct OverdueCardView: View {
+/// else. Since a status change would otherwise make a task vanish from the collection — and
+/// therefore from this card — immediately under the user's finger, tapped tasks get a 5-second
+/// grace period (`graceExpirations`) during which they keep showing here even though they're
+/// no longer live items. Tapping again within that window (e.g. complete → cancelled) restarts
+/// the 5 seconds.
+struct TaskReviewCardView: View {
 
     let context: SpreadPageContext
+    let collection: TaskReviewCollection
 
     /// Maps a task's ID to the wall-clock time its grace period ends. Presence in this
     /// dictionary, not the value, is what keeps a task showing — the `Task.sleep` in
@@ -25,14 +28,15 @@ struct OverdueCardView: View {
     @State private var graceExpirations: [UUID: Date] = [:]
 
     /// Snapshot of each grace-period task's source key, captured at the moment it was tapped —
-    /// needed because once a task leaves `overdueTaskItems` its source key isn't available from
-    /// the live data anymore, but the chip should still show where it came from during the grace
-    /// window.
+    /// needed because once a task leaves the collection its source key isn't available from
+    /// the live data anymore, but the chip should still show where it came from during the
+    /// grace window.
     @State private var graceSourceKeys: [UUID: TaskReviewSourceKey] = [:]
 
     var body: some View {
         let sections = Self.sections(
             context: context,
+            collection: collection,
             graceTaskIDs: Set(graceExpirations.keys),
             graceSourceKeys: graceSourceKeys,
             onStatusIconTap: { entry in
@@ -49,9 +53,9 @@ struct OverdueCardView: View {
 
     // MARK: - Status Icon Handling
 
-    /// Rotates `task`'s status through `EntryStatus.userEditableTaskStatuses` and, when it
-    /// leaves `open`, keeps it showing in the card for a 5-second grace period rather than
-    /// letting it vanish the instant it drops out of `overdueTaskItems`.
+    /// Rotates `task`'s status through `EntryStatus.userEditableTaskStatuses` and, when the
+    /// new status would drop it from this collection, keeps it showing in the card for a
+    /// 5-second grace period rather than letting it vanish the instant it leaves the live items.
     private func handleStatusIconTap(task: DataModel.Task) {
         let newStatus = task.status.rotate(in: EntryStatus.userEditableTaskStatuses)
 
@@ -59,9 +63,9 @@ struct OverdueCardView: View {
             graceExpirations.removeValue(forKey: task.id)
             graceSourceKeys.removeValue(forKey: task.id)
         } else {
-            // Snapshot the source key now, while the task is still a live overdue item with a
-            // known source — it won't be after `updateTaskStatus` commits.
-            if let key = context.journalManager.overdueTaskItems.first(where: { $0.task.id == task.id })?.sourceKey {
+            // Snapshot the source key now, while the task is still a live item with a known
+            // source — it won't be after `updateTaskStatus` commits.
+            if let key = collection.items(in: context.journalManager).first(where: { $0.task.id == task.id })?.sourceKey {
                 graceSourceKeys[task.id] = key
             }
 
@@ -86,20 +90,22 @@ struct OverdueCardView: View {
 
     // MARK: - Section Building
 
-    /// Builds the overdue card's sections, or `[]` when there are no overdue/grace-period tasks.
-    /// Uses `bestSpread(for:today)` to derive the creation date/period for the section metadata.
-    /// A `static` function so it's directly unit-testable without constructing the view.
+    /// Builds the card's sections for `collection`, or `[]` when there are no live or
+    /// grace-period tasks. Uses `bestSpread(for:today)` to derive the creation date/period for
+    /// the section metadata. A `static` function so it's directly unit-testable without
+    /// constructing the view.
     static func sections(
         context: SpreadPageContext,
+        collection: TaskReviewCollection,
         graceTaskIDs: Set<UUID> = [],
         graceSourceKeys: [UUID: TaskReviewSourceKey] = [:],
         onStatusIconTap: @escaping (any Entry) -> Void = { _ in }
     ) -> [EntryList.Section] {
-        let overdueItems = context.journalManager.overdueTaskItems
-        var sourceKeyByTaskID = Dictionary(uniqueKeysWithValues: overdueItems.map { ($0.task.id, $0.sourceKey) })
-        var entries: [any Entry] = overdueItems.map { $0.task }
+        let items = collection.items(in: context.journalManager)
+        var sourceKeyByTaskID = Dictionary(uniqueKeysWithValues: items.map { ($0.task.id, $0.sourceKey) })
+        var entries: [any Entry] = items.map { $0.task }
 
-        let liveTaskIDs = Set(overdueItems.map { $0.task.id })
+        let liveTaskIDs = Set(items.map { $0.task.id })
         for graceID in graceTaskIDs where !liveTaskIDs.contains(graceID) {
             guard let task = context.journalManager.tasks.first(where: { $0.id == graceID }) else { continue }
             entries.append(task)
@@ -123,8 +129,8 @@ struct OverdueCardView: View {
 
         return [
             EntryList.Section(
-                id: "overdue",
-                title: "Overdue",
+                id: collection.sectionID,
+                title: collection.title,
                 date: creationDate,
                 entries: entries,
                 creationPeriod: creationPeriod,
@@ -144,7 +150,7 @@ struct OverdueCardView: View {
                         }
                     )
                 ],
-                style: .card(.yellow)
+                style: .card(collection.cardColor)
             )
         ]
     }
