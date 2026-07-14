@@ -8004,3 +8004,27 @@ Infrastructure bundle from `Documentation/mvp-launch.md` §4/§5/§6.3. New task
 - **Tests**:
   - Unit tests: queue buffering/batch-flush/retry logic with a mock transport; taxonomy name stability; `Mock*` reporter assertions that the SPRD-302 save-failure and SPRD-305 quarantine paths report; no-op wiring for localhost.
 - **Dependencies**: SPRD-310 (shares the `AppDependencies` injection pass; land flags first to avoid factory-churn conflicts)
+
+---
+
+## Story: Event row styling (SESH-33)
+
+### [SPRD-315] Visual: Event row calendar color + passed-event completed styling - [ ] Pending
+
+- **Context**: SPRD-301 put EventKit-backed events into the day list as ordinary entry rows, but they render with the neutral icon color and a permanently `.upcoming` status. The calendar color already shown in Day Timeline View should carry over to the row's status icon, and events whose time has passed should read as done, the way completed tasks do.
+- **Description**: Tint the event row's status icon (base + overlay) with the event's calendar color by promoting `iconColor` to an `Entry` protocol requirement (the existing `DataModel.Event` override is currently unreachable through `any Entry`) and adding a view-layer resolved-color rule: non-terminal statuses use `entry.iconColor ?? status.iconColor`; terminal statuses use a subdued (reduced-opacity) `entry.iconColor` when the entry provides a tint, else the status gray. Make `DataModel.Event.status` time-aware for ephemeral EventKit-backed events: a pure `hasEnded(at:calendar:)` predicate (timed: end time < now; all-day: final day fully over), stamped as `@Transient var hasPassed` by `init(calendarEvent:asOf:calendar:)` at the section-build site using `journalManager.appClock.now`; `status` returns `.complete` when passed, else `.upcoming`, so the X overlay, gray icon, and gray title all flow from existing status presentation. Replace `standardEventConfig`'s day-granularity `isGreyedOut` rule with the same predicate. Display-only — nothing persisted or synced; no per-minute timer (re-evaluates on render/AppClock refresh moments).
+- **Spec**: `Documentation/Specs/EventKit.md` — Event Row Styling in Day-List Content (SPRD-315)
+- **Acceptance Criteria**:
+  - AC1: An upcoming or in-progress event row shows its status icon tinted with the event's calendar color, matching the color used for that calendar in Day Timeline View; title and layout are unchanged.
+  - AC2: A timed event whose end time is earlier than now renders as passed: X overlay, gray title, and the icon + overlay in a subdued (reduced-opacity) version of the calendar color — not the status gray.
+  - AC3: An in-progress timed event (started, not ended) still renders as upcoming with calendar tint.
+  - AC4: An all-day event renders as upcoming throughout its final day and completed only once that day is over in the spread's calendar.
+  - AC5: Task and note rows are visually unchanged (their `iconColor` stays `nil`).
+  - AC6: No status is persisted or synced; returning to foreground or crossing a day boundary re-evaluates without a timer.
+  - AC7: Build succeeds; existing entry-row and time-sort tests pass.
+- **Tests**:
+  - Unit tests (fixed clock) for `hasEnded(at:calendar:)`: timed ended, timed in-progress, timed upcoming, all-day on its final day, all-day after the final day.
+  - Unit tests for `status`: `.complete` when stamped passed, `.upcoming` otherwise, and unstamped/persisted events stay `.upcoming`.
+  - Unit test for resolved icon color: full calendar tint for `.upcoming` with `iconColor` set, subdued calendar tint for `.complete` with `iconColor` set, `status.iconColor` fallback when `iconColor` is nil (both terminal and non-terminal).
+  - Colors verified visually in previews/simulator.
+- **Dependencies**: SPRD-301

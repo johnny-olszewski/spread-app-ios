@@ -22,6 +22,7 @@ This index replaces the monolithic `Documentation/spec.md`. Each file below cove
 | `feature/SESH-30` | Release hardening (MVP Workstream A): silent-save-failure fixes, launch error recovery, spread empty states, sync/offline visibility + outbox quarantine, EventKit degradation | [ReleaseHardening.md](ReleaseHardening.md), [ErrorHandling.md](ErrorHandling.md) |
 | `feature/SESH-31` | MVP infrastructure: layered feature flags (Collections hidden as first consumer), hybrid Crashlytics + Supabase observability, Workstream B closeouts (SPRD-268/269/274; SPRD-230 cut) | [FeatureFlags.md](FeatureFlags.md), [Observability.md](Observability.md) |
 | `feature/SESH-32` | Day spread composition: sort-option hardening (deterministic Default chain), events integrated into the day entry list, containing-period open-task cards | [EntryListGrouping.md](EntryListGrouping.md), [DaySpreadComposition.md](DaySpreadComposition.md) |
+| `feature/SESH-33` | Event row styling: calendar color on the status icon, passed-event completed treatment | [EventKit.md](EventKit.md) |
 
 ---
 
@@ -44,7 +45,7 @@ This index replaces the monolithic `Documentation/spec.md`. Each file below cove
 | [DesignSystem.md](DesignSystem.md) | SpreadTheme, palette tokens, dark mode, typography, icons, WKFLW-20 polish | SPRD-213–SPRD-220, SPRD-267, SPRD-268, SPRD-269 |
 | [Sync.md](Sync.md) | Supabase offline-first sync, persistence, conflict scenarios | SPRD-80, SPRD-85, SPRD-253, SPRD-276 |
 | [Authentication.md](Authentication.md) | Auth UI, email confirmation, deeplinks, WKFLW-19, account management | SPRD-104, SPRD-106, SPRD-200–SPRD-207 |
-| [EventKit.md](EventKit.md) | Read-only EventKit events, day timeline, DayTimelineView, CalendarEventService, v2 future | SPRD-57, SPRD-194–SPRD-197, SPRD-228 |
+| [EventKit.md](EventKit.md) | Read-only EventKit events, day timeline, DayTimelineView, CalendarEventService, event row styling in day-list content, v2 future | SPRD-57, SPRD-194–SPRD-197, SPRD-228, SPRD-315 |
 | [DayTimeline.md](DayTimeline.md) | Day timeline visual overhaul: column layout, current-time indicator, event block content, all-day chips | SPRD-237 |
 | [Settings.md](Settings.md) | Settings v1, collections, first launch and onboarding | SPRD-39 |
 | [DevelopmentTooling.md](DevelopmentTooling.md) | Dev tooling, testing strategy, secrets and configuration | SPRD-105, SPRD-107 |
