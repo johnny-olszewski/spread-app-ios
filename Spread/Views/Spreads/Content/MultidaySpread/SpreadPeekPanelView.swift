@@ -147,7 +147,7 @@ struct SpreadPeekPanelView: View {
             let end = formatter.string(from: event.endDate)
             subtitle = "\(start)–\(end) · \(event.calendarTitle)"
         }
-        let entry = DataModel.Event(calendarEvent: event)
+        let entry = DataModel.Event(calendarEvent: event, asOf: today, calendar: calendar)
         let config = EntryRowView.Configuration(
             subtitle: { _ in subtitle }
         )

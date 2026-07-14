@@ -280,14 +280,12 @@ extension EntryRowView.Configuration {
     /// (`scheduledStart`/`scheduledEnd`), which already conveys the time range; a subtitle
     /// duplicated it and added row height. All-day events have no `scheduledStart`, so they
     /// render title-only. [SPRD-308]
+    ///
+    /// No `isGreyedOut` rule: passed events gray out via `status == .complete`, stamped at
+    /// ephemeral construction (`DataModel.Event.init(calendarEvent:asOf:calendar:)`). [SPRD-315]
     @MainActor
-    static func standardEventConfig(journalManager: JournalManager) -> EntryRowView.Configuration {
-        let today = journalManager.today
-        return EntryRowView.Configuration(
-            isGreyedOut: typed(default: false) { (event: DataModel.Event) in
-                (event.calendarEvent?.endDate ?? event.endDate) < today
-            }
-        )
+    static func standardEventConfig() -> EntryRowView.Configuration {
+        EntryRowView.Configuration()
     }
 
     /// Read-only task row configuration for review-only surfaces (currently just the overdue

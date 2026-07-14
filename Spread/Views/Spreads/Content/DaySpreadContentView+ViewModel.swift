@@ -43,7 +43,13 @@ extension DaySpreadContentView {
         func sections(groupedBy groupingOption: EntryGroupingOption, orderedBy sortingOption: EntrySortOption) -> [EntryList.Section] {
             let live = context.journalManager.spreadDataModel(for: spread.date, period: spread.period) ?? spreadDataModel
             let base: [any Entry] = live.tasks + live.notes
-            let eventEntries = calendarEvents.map { DataModel.Event(calendarEvent: $0) }
+            let eventEntries = calendarEvents.map {
+                DataModel.Event(
+                    calendarEvent: $0,
+                    asOf: context.journalManager.appClock.now,
+                    calendar: context.journalManager.calendar
+                )
+            }
 
             return Self.makeSections(
                 from: base + eventEntries,
@@ -70,7 +76,7 @@ extension DaySpreadContentView {
                     syncEngine: context.syncEngine,
                     coordinator: context.coordinator
                 ),
-                DataModel.Event.configurationKey: .standardEventConfig(journalManager: context.journalManager)
+                DataModel.Event.configurationKey: .standardEventConfig()
             ]
         }
 

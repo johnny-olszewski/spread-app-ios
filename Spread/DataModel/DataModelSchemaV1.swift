@@ -542,6 +542,11 @@ enum DataModelSchemaV1: VersionedSchema {
         /// Ephemeral EventKit backing data. Not persisted; nil for all stored events.
         @Transient var calendarEvent: CalendarEvent? = nil
 
+        /// Display-only flag stamped at ephemeral construction when the event's time had
+        /// fully passed (see `hasEnded(at:calendar:)`). Drives `status == .complete` so the
+        /// row renders with the completed treatment. Not persisted; never synced. [SPRD-315]
+        @Transient var hasPassed: Bool = false
+
         /// Creates a new event.
         ///
         /// - Parameters:
