@@ -288,18 +288,21 @@ extension EntryRowView.Configuration {
         EntryRowView.Configuration()
     }
 
-    /// Read-only task row configuration for review-only surfaces (currently just the overdue
-    /// card). The status icon still works — the caller supplies `onStatusIconTap` (e.g. to
+    /// Read-only task row configuration for the review panel's cards (Inbox / In Flight /
+    /// Overdue). The status icon still works — the caller supplies `onStatusIconTap` (e.g. to
     /// rotate status with a grace period before the row disappears). Tapping anywhere else on
     /// the row navigates straight to the task's source spread, or shows an informational alert
-    /// when the source is Inbox (no spread to navigate to). No inline title editing, no context
+    /// when the source is Inbox (no spread to navigate to) — unless `rowTapOverride` is
+    /// supplied, which replaces that default entirely (the Inbox segment opens the task edit
+    /// sheet instead). No inline title editing, no context
     /// menu (no `actions`).
     @MainActor
-    static func readOnlyOverdueTaskConfig(
+    static func readOnlyReviewTaskConfig(
         journalManager: JournalManager,
         coordinator: SpreadsCoordinator,
         sourceKey: @escaping (any Entry) -> TaskReviewSourceKey?,
         onStatusIconTap: @escaping (any Entry) -> Void,
+        rowTapOverride: ((any Entry) -> Void)? = nil,
         getChips: ((any Entry) -> [any LabelChipRepresentable])? = nil
     ) -> EntryRowView.Configuration {
 
@@ -334,7 +337,7 @@ extension EntryRowView.Configuration {
             },
             onStatusIconTap: onStatusIconTap,
             showAlert: { alert in coordinator.activeAlert = alert },
-            onRowTap: { entry in handleRowTap(on: entry) },
+            onRowTap: rowTapOverride ?? { entry in handleRowTap(on: entry) },
             getChips: { entry in getChips?(entry) ?? [] }
         )
     }

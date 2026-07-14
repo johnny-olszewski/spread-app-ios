@@ -2,13 +2,13 @@ import SwiftUI
 import JohnnyOFoundationCore
 import JohnnyOFoundationUI
 
-/// A card-styled task review surface rendered above `SpreadContentPagerView`, parameterized
-/// by a `TaskReviewCollection` (which items it shows, and its card title/color).
+/// A card-styled task review surface rendered inside `ReviewPanelView`, parameterized by a
+/// `TaskReviewCollection` (which items it shows, its card title/color, and its row-tap
+/// behavior).
 ///
-/// Renders nothing when the collection has no live (or grace-period) tasks — empty-state
-/// chrome belongs to the hosting panel, not the card. Renders one `EntryList.Section` inside
-/// the existing `EntryListView` + `EntryList.Section.Style.card` mechanism — no new visual
-/// chrome.
+/// Renders the collection's `emptyStateMessage` when there are no live (or grace-period)
+/// tasks. Otherwise renders one `EntryList.Section` inside the existing `EntryListView` +
+/// `EntryList.Section.Style.card` mechanism — no new visual chrome.
 ///
 /// The status icon is fully interactive here, rotating status the same way it does everywhere
 /// else. Since a status change would otherwise make a task vanish from the collection — and
@@ -48,6 +48,12 @@ struct TaskReviewCardView: View {
             // Each section already carries its own `configurationMap`, so the list-level
             // map here is unused — passed empty rather than duplicating the section's.
             EntryListView(sections: sections, configurationMap: [:])
+        } else {
+            Text(collection.emptyStateMessage)
+                .font(SpreadTheme.Typography.subheadline)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, SpreadTheme.Spacing.large)
         }
     }
 
@@ -136,7 +142,7 @@ struct TaskReviewCardView: View {
                 creationPeriod: creationPeriod,
                 creationDate: creationDate,
                 configurationMap: [
-                    DataModel.Task.configurationKey: .readOnlyOverdueTaskConfig(
+                    DataModel.Task.configurationKey: .readOnlyReviewTaskConfig(
                         journalManager: context.journalManager,
                         coordinator: context.coordinator,
                         sourceKey: { entry in
@@ -144,6 +150,7 @@ struct TaskReviewCardView: View {
                             return sourceKeyByTaskID[task.id]
                         },
                         onStatusIconTap: onStatusIconTap,
+                        rowTapOverride: collection.rowTapOverride(context: context),
                         getChips: { entry in
                             guard let task = entry as? DataModel.Task else { return [] }
                             return sourceKeyByTaskID[task.id].map { [$0] } ?? []
