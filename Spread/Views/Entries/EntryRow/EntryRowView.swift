@@ -232,7 +232,8 @@ struct EntryRowView: View {
                 baseShape: entry.baseShape,
                 bseeShapeConfig: .init(color: entry.resolvedIconColor, iconSize: nil),
                 overlay: entry.status.overlayShape,
-                overlayConfig: .init(color: entry.resolvedIconColor, iconSize: nil)
+                overlayConfig: .init(color: entry.resolvedIconColor, iconSize: nil),
+                iconOverride: entry.status.iconOverride
             )
         }
         .buttonStyle(.plain)

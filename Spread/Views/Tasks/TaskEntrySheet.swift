@@ -690,7 +690,8 @@ struct TaskEntrySheet: View {
                         baseShape: EntryType.task.statusIconBaseShape,
                         bseeShapeConfig: .init(color: assignment.status.iconColor, iconSize: SpreadTheme.IconSize.medium),
                         overlay: assignment.status.overlayShape,
-                        overlayConfig: .init(color: assignment.status.iconColor, iconSize: SpreadTheme.IconSize.medium)
+                        overlayConfig: .init(color: assignment.status.iconColor, iconSize: SpreadTheme.IconSize.medium),
+                        iconOverride: assignment.status.iconOverride
                     )
                     VStack(alignment: .leading, spacing: 2) {
                         Text(assignment.period.displayName)

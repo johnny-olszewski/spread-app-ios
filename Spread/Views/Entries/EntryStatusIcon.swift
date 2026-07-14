@@ -7,6 +7,10 @@ import JohnnyOFoundationUI
 /// `Overlay`: the base shape (filled circle, empty circle, or dash) with an optional
 /// animated overlay (xmark, arrow, or slash) indicating the current status.
 ///
+/// A third rendering mode is available via `iconOverride`: when supplied, the base
+/// shape and overlay are skipped entirely and a standalone Phosphor icon is rendered
+/// in their place (e.g. the in-flight status's airplane glyph).
+///
 /// Example usage:
 /// ```swift
 /// EntryStatusIcon(
@@ -52,25 +56,39 @@ struct EntryStatusIcon: View {
     let overlay: OverlayShape?
     let overlayConfig: Config?
 
+    /// A full-replacement glyph. When non-nil, the base shape and overlay are not
+    /// rendered — only this icon is drawn, sized and tinted using `bseeShapeConfig`.
+    /// Used for statuses (e.g. in-flight) that require a standalone Phosphor icon
+    /// rather than a shape-plus-overlay composition. [SPRD-316]
+    let iconOverride: SpreadTheme.Icon?
+
     init(
         baseShape: BaseShape,
         bseeShapeConfig: Config? = nil,
         overlay: OverlayShape?,
-        overlayConfig: Config? = nil
+        overlayConfig: Config? = nil,
+        iconOverride: SpreadTheme.Icon? = nil
     ) {
         self.baseShape = baseShape
         self.bseeShapeConfig = bseeShapeConfig
         self.overlay = overlay
         self.overlayConfig = overlayConfig
+        self.iconOverride = iconOverride
     }
 
     // MARK: - Body
 
     var body: some View {
-        baseShapeView
-            .overlay(alignment: overlayAlignment) {
-                overlayView
-            }
+        if let iconOverride {
+            iconOverride
+                .sized(bseeShapeConfig?.iconSize ?? Constants.defaultBaseShapeSize)
+                .iconTint(bseeShapeConfig?.color ?? Constants.defaultBaseShapeColor)
+        } else {
+            baseShapeView
+                .overlay(alignment: overlayAlignment) {
+                    overlayView
+                }
+        }
     }
 
     // MARK: - Base Shape
@@ -201,6 +219,16 @@ private struct AnimatedOverlayView<S: Shape>: View {
                 overlayConfig: .init(color: .secondary, iconSize: 12)
             )
             Text("Cancelled")
+        }
+        HStack(spacing: 12) {
+            EntryStatusIcon(
+                baseShape: .filledCircle,
+                bseeShapeConfig: .init(color: nil, iconSize: 12),
+                overlay: nil,
+                overlayConfig: nil,
+                iconOverride: .airplaneTilt
+            )
+            Text("In Flight")
         }
     }
     .padding()
