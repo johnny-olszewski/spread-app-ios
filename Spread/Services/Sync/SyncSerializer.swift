@@ -707,49 +707,10 @@ enum SyncSerializer {
         )
     }
 
-    /// Serializes a task entry into JSON record data for the outbox.
-    static func serializeTaskEntry(
-        _ task: DataModel.Task,
-        deviceId: UUID,
-        timestamp: Date,
-        deletedAt: Date? = nil
-    ) -> Data? {
-        let record: [String: Any?] = [
-            "id": task.id.uuidString,
-            "device_id": deviceId.uuidString,
-            "type": "task",
-            "title": task.title,
-            "content": nil,
-            "date": task.date.map { SyncDateFormatting.formatDate($0) },
-            "period": task.period?.rawValue,
-            "status": task.status.rawValue,
-            "body": task.body,
-            "priority": task.priority.rawValue,
-            "due_date": task.dueDate.map { SyncDateFormatting.formatDate($0) },
-            "scheduled_time": task.scheduledTime.map { SyncDateFormatting.formatTimestamp($0) },
-            "list_id": task.list?.id.uuidString,
-            "created_at": SyncDateFormatting.formatTimestamp(task.createdDate),
-            "deleted_at": (deletedAt ?? task.deletedAt).map { SyncDateFormatting.formatTimestamp($0) },
-            "title_updated_at": SyncDateFormatting.formatTimestamp(task.titleUpdatedAt ?? timestamp),
-            "content_updated_at": SyncDateFormatting.formatTimestamp(timestamp),
-            "date_updated_at": SyncDateFormatting.formatTimestamp(task.dateUpdatedAt ?? timestamp),
-            "period_updated_at": SyncDateFormatting.formatTimestamp(task.periodUpdatedAt ?? timestamp),
-            "status_updated_at": SyncDateFormatting.formatTimestamp(task.statusUpdatedAt ?? timestamp),
-            "body_updated_at": SyncDateFormatting.formatTimestamp(task.bodyUpdatedAt ?? timestamp),
-            "priority_updated_at": SyncDateFormatting.formatTimestamp(task.priorityUpdatedAt ?? timestamp),
-            "due_date_updated_at": SyncDateFormatting.formatTimestamp(task.dueDateUpdatedAt ?? timestamp),
-            // Falls back to createdDate, not `timestamp` (now()), unlike the other
-            // *_updated_at fields above: scheduledTime is legitimately nil far more often
-            // than the other fields are, and a push with a stale/nil local
-            // scheduledTimeUpdatedAt must never win an LWW race against a real
-            // server-side scheduled time by claiming "updated now" (SPRD-312).
-            "scheduled_time_updated_at": SyncDateFormatting.formatTimestamp(task.scheduledTimeUpdatedAt ?? task.createdDate),
-            "list_updated_at": SyncDateFormatting.formatTimestamp(task.listUpdatedAt ?? timestamp)
-        ]
-        return try? JSONSerialization.data(
-            withJSONObject: record.compactMapValues { $0 ?? NSNull() }
-        )
-    }
+    // Task serialization lives on `DataModel.Task.serialize(deviceId:timestamp:deletedAt:)`
+    // (`DataModel.Task+SerializableData.swift`) — the outbox push path for tasks. A duplicate
+    // `serializeTaskEntry` copy previously lived here with zero production callers; the two
+    // drifted during the SPRD-312 fix, so the dead copy was removed rather than re-synced.
 
     /// Serializes a note entry into JSON record data for the outbox.
     static func serializeNoteEntry(

@@ -68,13 +68,13 @@ struct SyncSerializerTests {
     }
 
     /// Conditions: A task whose `scheduledTime` is nil and whose `scheduledTimeUpdatedAt`
-    /// is also nil (never explicitly stamped), serialized at a `timestamp` well after
-    /// the task's `createdDate`.
+    /// is also nil (never explicitly stamped), serialized through the live outbox path
+    /// (`Task.serialize`) at a `timestamp` well after the task's `createdDate`.
     /// Expected: The emitted `scheduled_time_updated_at` falls back to `createdDate`, not
     /// `timestamp` — so a push carrying a stale/never-set nil time reports an old LWW
     /// clock and cannot outrace (and clobber) a real scheduled time set later on another
     /// device. Regression test for SPRD-312.
-    @Test func testSerializeTaskEntryScheduledTimeUpdatedAtFallsBackToCreatedDateNotNow() {
+    @Test func testSerializeScheduledTimeUpdatedAtFallsBackToCreatedDateNotNow() {
         let created = Date(timeIntervalSince1970: 1_700_000_000)
         let pushTimestamp = created.addingTimeInterval(86_400) // one day later
         let task = DataModel.Task(
@@ -86,7 +86,7 @@ struct SyncSerializerTests {
             scheduledTimeUpdatedAt: nil
         )
 
-        let data = SyncSerializer.serializeTaskEntry(task, deviceId: UUID(), timestamp: pushTimestamp)
+        let data = task.serialize(deviceId: UUID(), timestamp: pushTimestamp)
         let json = try! JSONSerialization.jsonObject(with: data!) as! [String: Any]
 
         #expect(json["scheduled_time"] is NSNull)
