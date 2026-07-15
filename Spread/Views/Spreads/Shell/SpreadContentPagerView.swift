@@ -73,7 +73,7 @@ struct SpreadContentPagerView: View {
                         .padding(.leading, SpreadTheme.Spacing.large)
                 }
                 .overlay(alignment: .trailing) {
-                    ReviewPanelToggleButton(isOpen: $isReviewPanelOpen)
+                    ReviewPanelToggleButton(journalManager: journalManager, isOpen: $isReviewPanelOpen)
                         .padding(.trailing, SpreadTheme.Spacing.large)
                 }
 
@@ -323,8 +323,13 @@ private struct TodayNavigationButton: View {
 
 /// Opens/closes the review panel (Inbox / In Flight / Overdue). Always visible — empty
 /// collections render their own empty states inside the panel, so there is no
-/// item-count-based hiding (and no `journalManager` dependency at all). [SPRD-317]
+/// item-count-based hiding. Reads `journalManager.overdueTaskItems` in its own body scope
+/// (not `SpreadContentPagerView`'s) so the overdue-tint recomputation stays isolated to this
+/// lightweight button and doesn't re-run the pager body. The icon tints yellow whenever there
+/// are overdue tasks, drawing the eye to the panel the way the old dedicated overdue button
+/// did, and `.primary` otherwise. [SPRD-317]
 private struct ReviewPanelToggleButton: View {
+    let journalManager: JournalManager
     @Binding var isOpen: Bool
 
     var body: some View {
@@ -332,10 +337,15 @@ private struct ReviewPanelToggleButton: View {
             withAnimation(SpreadTheme.Motion.spring) { isOpen.toggle() }
         } label: {
             SpreadTheme.Icon.listBullets.sized(SpreadTheme.IconSize.medium)
-                .iconTint(.primary)
+                .iconTint(hasOverdueTasks ? .yellow : .primary)
+                .animation(SpreadTheme.Motion.spring, value: hasOverdueTasks)
         }
         .buttonStyle(.plain)
         .contentShape(Circle())
+    }
+
+    private var hasOverdueTasks: Bool {
+        !journalManager.overdueTaskItems.isEmpty
     }
 }
 

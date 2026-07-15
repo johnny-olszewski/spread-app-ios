@@ -36,6 +36,15 @@ enum TaskReviewCollection: String, CaseIterable, Identifiable {
         }
     }
 
+    /// The icon shown on the segment's selector button.
+    var icon: SpreadTheme.Icon {
+        switch self {
+        case .inbox: return .tray
+        case .inFlight: return .airplaneTilt
+        case .overdue: return .clockCountdown
+        }
+    }
+
     /// Message shown in the card area when the collection has no items.
     var emptyStateMessage: String {
         switch self {
