@@ -37,6 +37,21 @@ extension RootNavigationView {
             return cases
         }
 
+        /// The destinations visible for the current feature-flag state.
+        ///
+        /// Filters flag-gated tabs out of `allCases` — currently only Collections,
+        /// which is hidden unless `FeatureFlag.collections` is enabled (SPRD-310).
+        /// Read during view-body evaluation so a debug toggle updates the tabs live.
+        @MainActor
+        static func visibleCases(featureFlags: any FeatureFlagProviding) -> [Content] {
+            allCases.filter { content in
+                switch content {
+                case .collections: featureFlags.isEnabled(.collections)
+                default: true
+                }
+            }
+        }
+
         // MARK: - Display
 
         /// The display title for this destination.

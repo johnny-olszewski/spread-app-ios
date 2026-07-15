@@ -43,18 +43,28 @@ extension DaySpreadContentView {
         func sections(groupedBy groupingOption: EntryGroupingOption, orderedBy sortingOption: EntrySortOption) -> [EntryList.Section] {
             let live = context.journalManager.spreadDataModel(for: spread.date, period: spread.period) ?? spreadDataModel
             let base: [any Entry] = live.tasks + live.notes
-            let eventEntries = calendarEvents.map { DataModel.Event(calendarEvent: $0) }
+            let eventEntries = calendarEvents.map {
+                DataModel.Event(
+                    calendarEvent: $0,
+                    asOf: context.journalManager.appClock.now,
+                    calendar: context.journalManager.calendar
+                )
+            }
 
             return Self.makeSections(
                 from: base + eventEntries,
                 spreadDate: spread.date,
                 groupingOption: groupingOption,
-                sortingOption: sortingOption,
-                eventConfigurationMap: eventConfigurationMap
+                sortingOption: sortingOption
             )
         }
 
-        var entryConfigurationMap: EntryRowView.ConfigurationMap {
+        /// The view-level configuration map passed to `EntryListView`, covering every type
+        /// any section can contain. Events flow through the same grouping pipeline as tasks
+        /// and notes in both size classes, so their configuration is always present — the
+        /// regular-width timeline card complements the list rather than replacing event
+        /// rows. [SPRD-308]
+        var listConfigurationMap: EntryRowView.ConfigurationMap {
             [
                 DataModel.Task.configurationKey: .standardTaskConfig(
                     journalManager: context.journalManager,
@@ -65,22 +75,9 @@ extension DaySpreadContentView {
                     journalManager: context.journalManager,
                     syncEngine: context.syncEngine,
                     coordinator: context.coordinator
-                )
+                ),
+                DataModel.Event.configurationKey: .standardEventConfig()
             ]
-        }
-
-        /// The view-level configuration map passed to `EntryListView`, covering every type
-        /// a section can contain. Time-sorted sections mix tasks/notes/events in one bucket
-        /// and rely on this fallback (their sections carry no per-section map); grouped
-        /// sections never contain events, so the extra event key is inert there. [SPRD-301]
-        var listConfigurationMap: EntryRowView.ConfigurationMap {
-            entryConfigurationMap.merging(eventConfigurationMap) { _, event in event }
-        }
-
-        var eventConfigurationMap: EntryRowView.ConfigurationMap {
-            shouldShowTimelineCard
-                ? [:]
-                : [DataModel.Event.configurationKey: .standardEventConfig(journalManager: context.journalManager)]
         }
 
         var onAddTask: (@MainActor (String, Date, Period, DataModel.List?, DataModel.Tag?) async throws -> Void) {
@@ -108,102 +105,113 @@ extension DaySpreadContentView {
 
         // MARK: - Section Grouping
 
-        /// Groups/orders the spread's non-event entries per `groupingOption`/`sortingOption`,
-        /// with calendar events always appearing last in their own fixed, ungrouped "Events"
-        /// section — events have no list/tag/status assignment, so they sit outside the
-        /// user-selectable grouping entirely, the same way overdue items sit outside it.
-        ///
-        /// `.time` sorting takes a different shape entirely: the fixed "Events" section
-        /// dissolves and timed entries of every type interleave chronologically, with
-        /// untimed entries in one "No time" section below — see `makeTimeSortedSections`.
+        /// Groups/orders every entry — tasks, notes, and calendar events — per
+        /// `groupingOption`/`sortingOption`, with no special casing by type: events land in
+        /// the "No list"/"No tag" bucket under list/tag grouping, their own bucket under
+        /// status/type grouping, and interleave chronologically with timed tasks under
+        /// Default sort. [SPRD-308]
         static func makeSections(
             from entries: [any Entry],
             spreadDate: Date,
             groupingOption: EntryGroupingOption,
-            sortingOption: EntrySortOption,
-            eventConfigurationMap: EntryRowView.ConfigurationMap
+            sortingOption: EntrySortOption
         ) -> [EntryList.Section] {
             guard !entries.isEmpty else { return [] }
 
-            if sortingOption == .time {
-                return makeTimeSortedSections(from: entries, spreadDate: spreadDate)
-            }
-
-            var regularEntries: [any Entry] = []
-            var eventEntries: [any Entry] = []
-            for entry in entries {
-                if entry.entryType == .event {
-                    eventEntries.append(entry)
-                } else {
-                    regularEntries.append(entry)
-                }
-            }
-
-            var sections = EntryList.Section.grouped(
-                from: regularEntries,
+            return EntryList.Section.grouped(
+                from: entries,
                 by: groupingOption.grouping(date: spreadDate, creationPeriod: .day, creationDate: spreadDate),
                 orderedBy: sortingOption.areInOrder
             )
-
-            if !eventEntries.isEmpty {
-                sections.append(EntryList.Section(
-                    id: "\(spreadDate.timeIntervalSinceReferenceDate)-events",
-                    title: "Events",
-                    date: spreadDate,
-                    entries: eventEntries.sortedByDate(),
-                    creationPeriod: .day,
-                    creationDate: spreadDate,
-                    configurationMap: eventConfigurationMap
-                ))
-            }
-
-            return sections
         }
 
-        /// Builds the `.time`-sorted shape: one headerless chronological section of all
-        /// timed entries (tasks by `scheduledTime`, `.timed` events by start time,
-        /// interleaved — absolute instants, so the order is timezone-invariant), then one
-        /// "No time" section (`.unnamed` style, per the SPRD-287 nil-bucket convention)
-        /// holding everything untimed, ordered chronologically by `sortDate` with a title
-        /// tiebreak. Sections carry no per-section configuration map — they mix entry
-        /// types, so rows resolve through the view-level `listConfigurationMap`. [SPRD-301]
-        static func makeTimeSortedSections(
-            from entries: [any Entry],
-            spreadDate: Date
-        ) -> [EntryList.Section] {
-            var timedEntries: [any Entry] = []
-            var untimedEntries: [any Entry] = []
-            for entry in entries {
-                if entry.scheduledStart != nil {
-                    timedEntries.append(entry)
-                } else {
-                    untimedEntries.append(entry)
+        // MARK: - Containing-Period Context
+
+        /// Card sections for the open tasks of each containing broader-period spread,
+        /// rendered below the day's own entry list — nearest horizon first: every multiday
+        /// spread whose range contains this day, then the containing month, then the year.
+        /// Spreads that don't exist or have no open tasks produce no card. [SPRD-309]
+        ///
+        /// Month/year resolve through the O(1) dictionary-keyed `spreadDataModel(for:period:)`;
+        /// containing multiday spreads through a single scan of `spreads` — no per-entry
+        /// work happens until a spread actually matches.
+        func containingPeriodSections(orderedBy sortingOption: EntrySortOption) -> [EntryList.Section] {
+            let journalManager = context.journalManager
+            let calendar = journalManager.calendar
+            let day = spread.date
+
+            var dataModels: [SpreadDataModel] = Self.containingMultidaySpreads(
+                for: day,
+                in: journalManager.spreads,
+                calendar: calendar
+            ).compactMap { journalManager.spreadDataModel(for: $0.date, period: .multiday) }
+
+            for period in [Period.month, .year] {
+                if let dataModel = journalManager.spreadDataModel(for: day, period: period) {
+                    dataModels.append(dataModel)
                 }
             }
 
-            var sections: [EntryList.Section] = []
-            if !timedEntries.isEmpty {
-                sections.append(EntryList.Section(
-                    id: "\(spreadDate.timeIntervalSinceReferenceDate)-timed",
-                    title: "",
-                    date: spreadDate,
-                    entries: EntrySortOption.time.areInOrder.map { timedEntries.sorted(by: $0) } ?? timedEntries,
-                    creationPeriod: .day,
-                    creationDate: spreadDate
-                ))
+            let formatter = SpreadDisplayNameFormatter(
+                calendar: calendar,
+                today: journalManager.today,
+                firstWeekday: journalManager.firstWeekday
+            )
+            return Self.makeContainingPeriodSections(
+                from: dataModels,
+                orderedBy: sortingOption,
+                displayName: { formatter.display(for: $0).primary }
+            )
+        }
+
+        /// The multiday spreads whose date range contains `day`, earliest-starting first.
+        /// Start/end are already day-normalized by spread construction; the range is
+        /// inclusive of its end day. [SPRD-309]
+        static func containingMultidaySpreads(
+            for day: Date,
+            in spreads: [DataModel.Spread],
+            calendar: Calendar
+        ) -> [DataModel.Spread] {
+            let normalizedDay = day.startOfDay(calendar: calendar)
+            return spreads
+                .filter { candidate in
+                    guard candidate.period == .multiday,
+                          let start = candidate.startDate, let end = candidate.endDate else { return false }
+                    return start <= normalizedDay && normalizedDay <= end
+                }
+                .sorted { ($0.startDate ?? $0.date) < ($1.startDate ?? $1.date) }
+        }
+
+        /// Builds one `SectionStyle.card` section per data model holding its **open** tasks
+        /// **assigned to that data model's own period** (no notes, events, completed/migrated/
+        /// cancelled tasks, and no finer-grained tasks that merely roll up into this period's
+        /// data model), ordered by `sortingOption`, titled via `displayName`, preserving the
+        /// caller's data-model order. Data models with no such tasks are omitted. [SPRD-309]
+        ///
+        /// The period filter matters because a broader-period `SpreadDataModel.tasks`
+        /// aggregates sub-period tasks (e.g. a month model includes day-assigned tasks whose
+        /// day spread isn't created) — mirrors `YearSpreadContentView`'s `period`-filtered
+        /// top section. So the multiday card shows only multiday-assigned tasks, etc.
+        static func makeContainingPeriodSections(
+            from dataModels: [SpreadDataModel],
+            orderedBy sortingOption: EntrySortOption,
+            displayName: (DataModel.Spread) -> String
+        ) -> [EntryList.Section] {
+            dataModels.compactMap { dataModel in
+                let openTasks: [any Entry] = dataModel.tasks.filter {
+                    $0.status == .open && $0.period == dataModel.spread.period
+                }
+                guard !openTasks.isEmpty else { return nil }
+                return EntryList.Section(
+                    id: "period-context-\(dataModel.spread.id)",
+                    title: displayName(dataModel.spread),
+                    date: dataModel.spread.date,
+                    entries: openTasks.sorted(by: sortingOption.areInOrder),
+                    creationPeriod: dataModel.spread.period,
+                    creationDate: dataModel.spread.date,
+                    style: .card(SpreadTheme.Accent.primary)
+                )
             }
-            if !untimedEntries.isEmpty {
-                sections.append(EntryList.Section(
-                    id: "\(spreadDate.timeIntervalSinceReferenceDate)-untimed",
-                    title: "No time",
-                    date: spreadDate,
-                    entries: EntrySortOption.dueDate.areInOrder.map { untimedEntries.sorted(by: $0) } ?? untimedEntries,
-                    creationPeriod: .day,
-                    creationDate: spreadDate,
-                    headerStyle: .unnamed
-                ))
-            }
-            return sections
         }
     }
 }
@@ -213,13 +221,4 @@ extension DaySpreadContentView {
 private extension Optional where Wrapped == UserInterfaceSizeClass {
     /// `true` when the size class is `.regular` (wider layout context).
     var isRegular: Bool { self == .regular }
-}
-
-// MARK: - Entry sorting helpers
-
-private extension [any Entry] {
-    /// Returns the entries sorted chronologically by their `sortDate`.
-    func sortedByDate() -> [any Entry] {
-        sorted { $0.sortDate < $1.sortDate }
-    }
 }

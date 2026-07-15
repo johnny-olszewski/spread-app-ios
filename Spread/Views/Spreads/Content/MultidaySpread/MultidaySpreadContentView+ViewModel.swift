@@ -38,7 +38,13 @@ extension MultidaySpreadContentView {
             let cal = context.calendar
             let live = context.journalManager.spreadDataModel(for: spread.date, period: spread.period) ?? spreadDataModel
             let base = live.displayedEntries(calendar: cal)
-            let eventEntries: [DataModel.Event] = calendarEvents.map { DataModel.Event(calendarEvent: $0) }
+            let eventEntries: [DataModel.Event] = calendarEvents.map {
+                DataModel.Event(
+                    calendarEvent: $0,
+                    asOf: context.journalManager.appClock.now,
+                    calendar: cal
+                )
+            }
 
             return Self.makeSections(
                 from: base + eventEntries,
@@ -63,7 +69,7 @@ extension MultidaySpreadContentView {
                     syncEngine: context.syncEngine,
                     coordinator: context.coordinator
                 ),
-                DataModel.Event.configurationKey: .standardEventConfig(journalManager: context.journalManager)
+                DataModel.Event.configurationKey: .standardEventConfig()
             ]
         }
 
@@ -162,10 +168,7 @@ extension MultidaySpreadContentView {
             }
 
             func ordered(_ entries: [any Entry]) -> [any Entry] {
-                if let areInOrder = sortingOption.areInOrder {
-                    return entries.sorted(by: areInOrder)
-                }
-                return entries.sorted { $0.sortDate < $1.sortDate }
+                entries.sorted(by: sortingOption.areInOrder)
             }
 
             let start = startDate.startOfDay(calendar: calendar)

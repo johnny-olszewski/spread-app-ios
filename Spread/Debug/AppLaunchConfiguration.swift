@@ -9,6 +9,8 @@ struct AppLaunchConfiguration {
     let locale: Locale?
     let calendarIdentifier: Calendar.Identifier?
     let showsTemporalHarness: Bool
+    /// Feature-flag overrides parsed from `-FeatureFlagOverride <flag>=<on|off>` arguments.
+    let featureFlagOverrides: [FeatureFlag: Bool]
 
     static var current: AppLaunchConfiguration {
         resolve(launchArguments: ProcessInfo.processInfo.arguments)
@@ -29,8 +31,26 @@ struct AppLaunchConfiguration {
             timeZone: timeZone,
             locale: locale,
             calendarIdentifier: calendarIdentifier,
-            showsTemporalHarness: showsTemporalHarness
+            showsTemporalHarness: showsTemporalHarness,
+            featureFlagOverrides: featureFlagOverrides(from: launchArguments)
         )
+    }
+
+    /// Parses every `-FeatureFlagOverride <flag>=<on|off>` argument into a flag→value map.
+    ///
+    /// Unknown flag names and malformed tokens are ignored. Later occurrences win.
+    /// Accepts `on`/`true`/`1` (enabled) and anything else as disabled.
+    static func featureFlagOverrides(from launchArguments: [String]) -> [FeatureFlag: Bool] {
+        var overrides: [FeatureFlag: Bool] = [:]
+        for (index, argument) in launchArguments.enumerated()
+        where argument == "-FeatureFlagOverride" && index + 1 < launchArguments.count {
+            let token = launchArguments[index + 1]
+            let parts = token.split(separator: "=", maxSplits: 1)
+            guard parts.count == 2, let flag = FeatureFlag(rawValue: String(parts[0])) else { continue }
+            let value = parts[1].lowercased()
+            overrides[flag] = (value == "on" || value == "true" || value == "1")
+        }
+        return overrides
     }
 
     var startupClockContext: AppClockContext? {

@@ -35,8 +35,9 @@
 
 ### Task
 - Inherits Entry protocol. [SPRD-9]
-- Has status: open, complete, migrated, cancelled. [SPRD-10]
+- Has status: open, complete, migrated, cancelled, in_flight. [SPRD-10, SPRD-316]
 - `migrated` is system-derived historical assignment state and is not user-editable in the task edit sheet. [SPRD-141]
+- `in_flight` is task-only: the user has taken the action available to them but the task itself isn't finished (e.g. a submitted request awaiting approval). User-editable via the same row tap-cycle and edit-sheet Status picker as open/complete/cancelled; renders as a standalone airplane-tilt icon (no overlay-on-shape, unlike every other status) at full opacity with an editable title; automatically excluded from overdue and migration suggestions via the existing `status == .open` gates. [SPRD-316]
 - Can be assigned to year, month, multiday, or day spreads. [SPRD-13, SPRD-193]
 - A task may have a desired assignment defined by a preferred `date` and preferred `period`; when no preferred assignment exists, the task remains in Inbox until explicitly assigned. [SPRD-24, SPRD-110, SPRD-170]
 - A task's due date is distinct from its assignment target. Due date is informational display metadata only; it does not move the task between spreads, place it in Inbox, affect migration, or determine overdue membership. [SPRD-170]
@@ -51,6 +52,7 @@
   - Complete: solid circle with X overlay, greyed out row.
   - Migrated: solid circle with arrow (→) overlay, greyed out row.
   - Cancelled: solid circle, no overlay, strikethrough entire row.
+  - In Flight: airplane-tilt icon replacing the circle entirely (no overlay), `.primary` color, full-opacity row, editable title — same non-greyed treatment as Open. [SPRD-316]
 
 ### Note
 - Inherits Entry protocol. [SPRD-9]

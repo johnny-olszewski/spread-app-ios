@@ -133,8 +133,7 @@ struct SpreadContentPagerAssemblyTests {
             from: entries,
             spreadDate: spreadDate,
             groupingOption: .list,
-            sortingOption: .dueDate,
-            eventConfigurationMap: [:]
+            sortingOption: .dueDate
         )
 
         #expect(sections.count == 2)

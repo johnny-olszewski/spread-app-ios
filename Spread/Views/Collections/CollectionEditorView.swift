@@ -34,6 +34,9 @@ struct CollectionEditorView: View {
     /// The debounce task for auto-save.
     @State private var saveTask: Task<Void, Never>?
 
+    /// Message shown inline while the most recent auto-save failed; cleared on the next success.
+    @State private var saveErrorMessage: String?
+
     /// Debounce interval for auto-save in seconds.
     private let debounceInterval: TimeInterval = 1.0
 
@@ -58,6 +61,9 @@ struct CollectionEditorView: View {
     var body: some View {
         VStack(spacing: 0) {
             titleField
+            if let saveErrorMessage {
+                saveErrorRow(saveErrorMessage)
+            }
             Divider()
             contentEditor
         }
@@ -90,6 +96,16 @@ struct CollectionEditorView: View {
             .scrollContentBackground(.hidden)
     }
 
+    /// Inline indicator that the latest auto-save failed; edits are retained and retried.
+    private func saveErrorRow(_ message: String) -> some View {
+        Text("Changes aren't saving: \(message)")
+            .font(SpreadTheme.Typography.caption)
+            .foregroundStyle(.red)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
+    }
+
     // MARK: - Auto-Save
 
     private func scheduleSave() {
@@ -108,9 +124,14 @@ struct CollectionEditorView: View {
         collection.title = title
         collection.content = content
         collection.modifiedDate = .now
-        try? await collectionRepository.save(collection)
-        hasUnsavedChanges = false
-        onEdited?()
+        do {
+            try await collectionRepository.save(collection)
+            hasUnsavedChanges = false
+            saveErrorMessage = nil
+            onEdited?()
+        } catch {
+            saveErrorMessage = error.localizedDescription
+        }
     }
 
     private func saveImmediatelyAndSync() {

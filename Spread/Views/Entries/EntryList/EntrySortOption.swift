@@ -2,68 +2,50 @@ import Foundation
 
 /// A user-selectable within-section ordering for entries, orthogonal to `EntryGroupingOption`.
 ///
-/// Built directly on `Entry` protocol properties (`displayPriority`/`sortDate`/`title`) — no
-/// per-type casting needed, unlike grouping by list/tag. `String`-backed so it works directly
-/// with `@AppStorage`.
+/// Built directly on `Entry` protocol properties (`scheduledStart`/`displayPriority`/`dueDate`/
+/// `entryType`/`title`/`createdDate`) — no per-type casting needed, unlike grouping by list/tag.
+/// `String`-backed so it works directly with `@AppStorage`.
+///
+/// Every option resolves ties through the full **Default chain** (`scheduledStart` nil-last →
+/// title → `createdDate`), so any option's output is identical for any input permutation —
+/// `createdDate` is effectively unique, making the chain a total order. [SPRD-307]
 enum EntrySortOption: String, CaseIterable, Identifiable {
-    case manual
+    case `default`
     case priority
     case dueDate
-    case title
     case type
-    case time
 
     var id: String { rawValue }
-
-    /// The options every spread offers. `.time` is excluded: a scheduled time is only
-    /// meaningful on a day spread, so only Day passes `allCases` to
-    /// `EntryListOptionsPicker`. See `Documentation/Specs/TaskScheduledTime.md`. [SPRD-301]
-    static var universalOptions: [EntrySortOption] {
-        allCases.filter { $0 != .time }
-    }
 
     /// Display label for use in `EntryListOptionsPicker`.
     var displayName: String {
         switch self {
-        case .manual: "Manual"
+        case .default: "Default"
         case .priority: "Priority"
         case .dueDate: "Due Date"
-        case .title: "Title"
         case .type: "Type"
-        case .time: "Time"
         }
     }
 
-    /// The within-bucket ordering comparator for this option, or `nil` for `.manual`
-    /// (preserves the incoming order — see `EntryList.Section.grouped(from:by:orderedBy:)`).
+    /// The within-bucket ordering comparator for this option.
     ///
-    /// Every non-`.manual`, non-`.title` option breaks ties on its primary key by title,
-    /// alphabetically — without this, two same-priority/same-due-date/same-type entries
-    /// would fall back to whatever order `sorted(by:)` happened to preserve them in, which
-    /// is unspecified and not what a user picking "sort by X" expects.
-    var areInOrder: ((any Entry, any Entry) -> Bool)? {
+    /// `.default` is the chain itself: timed entries first, chronological by `scheduledStart`
+    /// (absolute instants, so the ordering is timezone-invariant across mixed types), then
+    /// untimed entries alphabetically by title, with `createdDate` breaking title ties.
+    /// Every other option applies its primary key and falls through the entire Default
+    /// chain on ties.
+    var areInOrder: (any Entry, any Entry) -> Bool {
         switch self {
-        case .manual:
-            return nil
+        case .default:
+            return Self.defaultChain
         case .priority:
-            return Self.withTitleTiebreaker { Self.priorityRank($0.displayPriority) > Self.priorityRank($1.displayPriority) }
+            return Self.withDefaultTiebreaker { Self.priorityRank($0.displayPriority) > Self.priorityRank($1.displayPriority) }
         case .dueDate:
-            return Self.withTitleTiebreaker { $0.sortDate < $1.sortDate }
-        case .title:
-            return Self.titleAscending
+            // The task's actual due date, soonest first; entries without one (including
+            // all events and notes) sort after all due-dated entries. [SPRD-307]
+            return Self.withDefaultTiebreaker { Self.compareNilLast($0.dueDate, $1.dueDate) == .orderedAscending }
         case .type:
-            return Self.withTitleTiebreaker { Self.typeRank($0.entryType) < Self.typeRank($1.entryType) }
-        case .time:
-            // Timed entries chronological by `scheduledStart` (absolute instants, so the
-            // ordering is timezone-invariant across mixed types); untimed entries after
-            // all timed ones. [SPRD-301]
-            return Self.withTitleTiebreaker { lhs, rhs in
-                switch (lhs.scheduledStart, rhs.scheduledStart) {
-                case let (lhsStart?, rhsStart?): lhsStart < rhsStart
-                case (.some, nil): true
-                case (nil, .some), (nil, nil): false
-                }
-            }
+            return Self.withDefaultTiebreaker { Self.typeRank($0.entryType) < Self.typeRank($1.entryType) }
         }
     }
 
@@ -79,20 +61,39 @@ enum EntrySortOption: String, CaseIterable, Identifiable {
         EntryType.allCases.firstIndex(of: entryType) ?? 0
     }
 
-    private static let titleAscending: (any Entry, any Entry) -> Bool = {
-        $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+    /// The Default chain: `scheduledStart` ascending with non-nil before nil, then title
+    /// (localized, case-insensitive) ascending, then `createdDate` ascending.
+    private static let defaultChain: (any Entry, any Entry) -> Bool = { lhs, rhs in
+        let time = compareNilLast(lhs.scheduledStart, rhs.scheduledStart)
+        if time != .orderedSame { return time == .orderedAscending }
+        let title = lhs.title.localizedCaseInsensitiveCompare(rhs.title)
+        if title != .orderedSame { return title == .orderedAscending }
+        return lhs.createdDate < rhs.createdDate
+    }
+
+    /// Three-way compare with `nil` ordered after every non-nil value.
+    private static func compareNilLast<T: Comparable>(_ lhs: T?, _ rhs: T?) -> ComparisonResult {
+        switch (lhs, rhs) {
+        case let (lhs?, rhs?):
+            if lhs < rhs { return .orderedAscending }
+            if lhs > rhs { return .orderedDescending }
+            return .orderedSame
+        case (.some, nil): return .orderedAscending
+        case (nil, .some): return .orderedDescending
+        case (nil, nil): return .orderedSame
+        }
     }
 
     /// Wraps `primary` so that when it considers two entries equivalent (neither sorts
-    /// before the other), the result falls back to alphabetical title order instead of
+    /// before the other), the result falls through the entire Default chain instead of
     /// leaving the tie unresolved.
-    private static func withTitleTiebreaker(
+    private static func withDefaultTiebreaker(
         _ primary: @escaping (any Entry, any Entry) -> Bool
     ) -> (any Entry, any Entry) -> Bool {
         { lhs, rhs in
             if primary(lhs, rhs) { return true }
             if primary(rhs, lhs) { return false }
-            return titleAscending(lhs, rhs)
+            return defaultChain(lhs, rhs)
         }
     }
 }

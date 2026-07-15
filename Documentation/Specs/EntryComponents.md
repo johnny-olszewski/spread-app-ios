@@ -1,8 +1,8 @@
 # Entry Components
 
 > **Status**: Draft  
-> **SPRD tasks**: [SPRD-227], [SPRD-270]  
-> **Session**: SESH-22, SESH-25
+> **SPRD tasks**: [SPRD-227], [SPRD-270], [SPRD-316]  
+> **Session**: SESH-22, SESH-25, SESH-33
 
 ## Overview
 
@@ -148,6 +148,51 @@ All alerts (spread delete, entry delete, discard title changes) are handled by a
 - **Rationale**: This is the literal "reuse the same component structure" outcome — `SlashShape` and `XMarkShape` are now the same kind of shape (centered, `armLength`-scaled), and `.slash`'s configuration block in `EntryStatusIcon` is now line-for-line structurally identical to `.xmark`'s, differing only in which `Shape` type and stroke values are passed in. No new types, alignment cases, or one-off magic numbers were introduced.
 - **SPRD reference**: SPRD-270
 
+---
+
+## In Flight Task Status (SESH-33)
+
+### Overview
+
+Adds a fourth user-editable task status, `.inFlight`, for the case where the user has already taken the action available to them (e.g. submitted a request-to-leave form) and there is nothing left for them to do, but the task itself isn't finished — it's waiting on an external party or process. Task-only, matching how `.active`/`.upcoming` are already implicitly scoped to Note/Event.
+
+### Requirements
+
+- `EntryStatus` gains a `.inFlight` case. [SPRD-316]
+- `.inFlight` is constrained to `DataModel.Task` by the same convention that already scopes other statuses to a single entry type (there is no compiler-level restriction — `EntryStatus` is a flat enum shared by Task/Note/Event — the constraint is that no Note or Event call site ever offers or sets `.inFlight`, exactly as `.migrated` is task+note but never event, and `.active`/`.upcoming` never appear on a task). [SPRD-316]
+- `EntryStatus.userEditableTaskStatuses` becomes `[.open, .inFlight, .complete, .cancelled]` (previously `[.open, .complete, .cancelled]`). This reorders the existing tap-cycle: tapping an open task's row now advances it to In Flight, not directly to Complete — an accepted, intentional trade-off. [SPRD-316]
+- `EntryRowView+Configuration.standardTaskConfig`'s `onStatusIconTap` and `OverdueCardView`'s status-tap handler both currently re-declare the cycle as a literal `[.open, .complete, .cancelled]` array instead of reading `EntryStatus.userEditableTaskStatuses`. Both call sites switch to referencing the shared static array, removing the duplication and guaranteeing the row tap-cycle and `TaskEntrySheet`'s Status picker (which already reads `userEditableTaskStatuses`) can never drift apart. [SPRD-316]
+- `TaskEntrySheet.statusOptionIcon` maps `.inFlight` to the same icon used in the row (see below), giving it a 4th selectable chip alongside Open/Complete/Cancelled; `.migrated` remains the separate disabled/informational chip, unaffected. [SPRD-316]
+- `SpreadTheme.Icon` gains a new case, `airplaneTilt`, mapped to Phosphor's `Ph.airplaneTilt` (`.regular` weight only — no `.fill` sibling is added, consistent with icons that have no prior SF Symbol `*.fill` counterpart to mirror). [SPRD-316]
+- `.inFlight` does **not** set `isGreyedOut` or `inlineChangesAreLocked` — it renders at full opacity with an editable title, identically to `.open`/`.active`, differing only in the status icon itself. The real-world process is still pending, and the user may still want to edit the task while waiting. [SPRD-316]
+- `.inFlight`'s icon color is `.primary`, same as `.open`/`.active`/`.upcoming` — the airplane-tilt shape is the sole visual differentiator; no accent color is layered on top. `Entry.resolvedIconColor`'s exhaustive status switch (added in SPRD-315) handles `.inFlight` in its non-terminal branch (`iconColor ?? status.iconColor`) — a no-op for tasks, which have no entry-specific `iconColor`. [SPRD-316]
+- `.inFlight` requires no new eligibility gating for overdue or migration: `JournalRuleEngine.overdueTaskItem`, `migrationCandidate`, `migrationDestination`, and `DataModel.Task.migrationOptions` all already gate on `task.status == .open`, which `.inFlight` fails exactly like `.complete`/`.cancelled`/`.migrated` do today — verified by regression test, not new production code. [SPRD-316]
+- Supabase's `entries_status_check` and `assignments_status_check` CHECK constraints whitelist task status strings and must include `'in_flight'`. Assignments genuinely carry a task's status (`JournalRuleEngine.reconcilePreferredAssignment` stamps `destinationStatus = task.status` onto assignment rows), so **both** constraints are widened — applied to spread-prod as migration `add_in_flight_task_status` and folded into the squashed `baseline_schema.sql` per convention. The Swift sync client needs no changes: `SyncSerializer` round-trips `status.rawValue`, and `.inFlight`'s explicit raw value is `"in_flight"`. Discovered during pre-implementation audit — the original spec draft wrongly assumed sync was free. [SPRD-316]
+
+### Design Decisions
+
+### Decision: In-flight replaces the icon entirely instead of layering an overlay
+
+- **Context**: Every existing status renders as a base shape (`.filledCircle` for tasks) with an optional `OverlayShape` composited on top via `EntryStatusIcon`'s `.overlay(alignment:)` — `.xmark` for complete, `.arrowRight` for migrated, `.slash` for cancelled. The product requirement is explicit: In Flight must never render as an overlay on the circle; it must look like a standalone airplane-tilt icon, fully opaque, replacing the base shape rather than decorating it.
+- **Decision**: `EntryStatusIcon` gains an alternate rendering path: when a status resolves to a full icon override (an `SpreadTheme.Icon`) rather than an `OverlayShape`, the view renders only that Phosphor icon and skips `baseShapeView`/`overlayView` entirely — no circle drawn underneath, nothing composited on top. `EntryStatus.overlayShape` stays `nil` for `.inFlight` (matching `.open`/`.active`/`.upcoming`'s "no overlay" case); a separate new presentation property carries the override icon (`.airplaneTilt`) that `EntryRowView` and `TaskEntrySheet` consult when constructing the icon for a task's current status.
+- **Rationale**: Keeps `BaseShape`/`OverlayShape` as pure shape-only enums (per the existing "Shape and configuration are separate" decision above) rather than smuggling a Phosphor icon into either enum's case set. The override is an orthogonal, opt-in third rendering mode, not a new `BaseShape` or `OverlayShape` case.
+- **SPRD reference**: SPRD-316
+
+### Decision: Cycle order is `[.open, .inFlight, .complete, .cancelled]`
+
+- **Context**: The tap-to-cycle array is append-only in spirit (`.migrated` stays outside the user-editable cycle entirely), so the default option would have added In Flight at the end, preserving today's one-tap open→complete gesture. The user explicitly chose otherwise.
+- **Decision**: In Flight is inserted second, immediately after Open: `[.open, .inFlight, .complete, .cancelled]`, wrapping back to `.open` after Cancelled.
+- **Rationale**: Product decision — tapping an open task now visits In Flight before Complete. Documented here so the reordering of the existing gesture reads as intentional, not a regression.
+- **SPRD reference**: SPRD-316
+
+### Decision: Full opacity, editable title, `.primary` color
+
+- **Context**: `isGreyedOut`/`inlineChangesAreLocked` today both treat every non-open/active status as "done, stop editing." In Flight doesn't fit that binary — the task isn't finished, only the user's part of it.
+- **Decision**: In Flight renders like `.open`/`.active` for opacity, title-lock, and icon color; the airplane-tilt icon shape alone communicates the status.
+- **Rationale**: Avoids visually burying a task the user still needs to track and possibly edit while it's pending elsewhere.
+- **SPRD reference**: SPRD-316
+
 ## Open Questions
 
 - `EntryStatusIconRepresentable` returns `EntryStatusIcon.BaseShape`, coupling model-layer conformances to a view-nested type. If `EntryStatusIcon` is ever renamed, all conformances break. Consider whether `BaseShape` and `OverlayShape` should be top-level types in a future cleanup pass.
+- The icon-override mechanism's exact API shape for In Flight (a new `EntryStatusIcon` initializer parameter vs. a separate `EntryStatus` presentation property) is left to implementation — both satisfy the "no overlay, full replacement" requirement above. [SPRD-316]

@@ -486,7 +486,7 @@ struct SyncMetadataTests {
             dueDateUpdatedAt: modelTimestamp
         )
 
-        let data = SyncSerializer.serializeTaskEntry(task, deviceId: deviceId, timestamp: fallbackTimestamp)
+        let data = task.serialize(deviceId: deviceId, timestamp: fallbackTimestamp)
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]
 
         let expectedTs = SyncDateFormatting.formatTimestamp(modelTimestamp)
@@ -506,7 +506,7 @@ struct SyncMetadataTests {
 
         let task = DataModel.Task(title: "Test")
 
-        let data = SyncSerializer.serializeTaskEntry(task, deviceId: deviceId, timestamp: fallbackTimestamp)
+        let data = task.serialize(deviceId: deviceId, timestamp: fallbackTimestamp)
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]
 
         let expectedTs = SyncDateFormatting.formatTimestamp(fallbackTimestamp)
@@ -525,7 +525,7 @@ struct SyncMetadataTests {
         let timestamp = SyncDateFormatting.parseTimestamp("2025-12-31T23:59:59.000Z")!
         let task = DataModel.Task(title: "Unassigned", date: nil, period: nil)
 
-        let data = SyncSerializer.serializeTaskEntry(task, deviceId: deviceId, timestamp: timestamp)
+        let data = task.serialize(deviceId: deviceId, timestamp: timestamp)
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]
 
         #expect(json["date"] is NSNull)
@@ -647,7 +647,7 @@ struct SyncMetadataTests {
             deletedAt: deletedDate
         )
 
-        let data = SyncSerializer.serializeTaskEntry(task, deviceId: deviceId, timestamp: timestamp)
+        let data = task.serialize(deviceId: deviceId, timestamp: timestamp)
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]
 
         let expectedTs = SyncDateFormatting.formatTimestamp(deletedDate)
@@ -666,8 +666,8 @@ struct SyncMetadataTests {
             deletedAt: modelDeletedAt
         )
 
-        let data = SyncSerializer.serializeTaskEntry(
-            task, deviceId: deviceId, timestamp: timestamp, deletedAt: paramDeletedAt
+        let data = task.serialize(
+            deviceId: deviceId, timestamp: timestamp, deletedAt: paramDeletedAt
         )
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]
 

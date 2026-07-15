@@ -12,7 +12,7 @@ struct YearSpreadContentView: View {
     let scrollToTodayToken: Int
 
     @AppStorage("entryGrouping.year") private var groupingOption: EntryGroupingOption = .list
-    @AppStorage("entrySorting.year") private var sortingOption: EntrySortOption = .dueDate
+    @AppStorage("entrySorting.year") private var sortingOption: EntrySortOption = .default
 
     // MARK: - Layout
 
@@ -29,6 +29,12 @@ struct YearSpreadContentView: View {
         let tasks = spreadDataModel.tasks.filter { $0.period == .year }
         let notes = spreadDataModel.notes.filter { $0.period == .year }
         return tasks + notes
+    }
+
+    /// Whether the year spread has no entries at any level (year, month, or day) —
+    /// the whole-spread empty-state condition (SPRD-304).
+    private var hasNoEntries: Bool {
+        spreadDataModel.tasks.isEmpty && spreadDataModel.notes.isEmpty
     }
 
     private var configurationMap: EntryRowView.ConfigurationMap {
@@ -77,7 +83,13 @@ struct YearSpreadContentView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
 
-                        topYearSection
+                        if hasNoEntries {
+                            EntryListEmptyStateView(
+                                message: "Nothing logged in this year yet. Add long-horizon tasks and notes with the + button."
+                            )
+                        } else {
+                            topYearSection
+                        }
 
                         ForEach(monthDates, id: \.self) { date in
                             monthCard(date)

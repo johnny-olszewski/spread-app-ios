@@ -1,7 +1,7 @@
 # EventKit
 
 > **Status**: Active  
-> **SPRD tasks**: SPRD-57, SPRD-194, SPRD-195, SPRD-196, SPRD-197, SPRD-228  
+> **SPRD tasks**: SPRD-57, SPRD-194, SPRD-195, SPRD-196, SPRD-197, SPRD-228, SPRD-315  
 > **Session**: SESH-##
 
 > Source: Documentation/spec.md
@@ -82,6 +82,54 @@
 - **Decision**: `openEvent(_:)` is moved onto `CalendarEventService` as an additional protocol requirement, or `eventKitService` remains in `SpreadPageContext` solely for `openEvent`. Preference: keep `eventKitService` in `SpreadPageContext` for `openEvent` only, and remove the fetch path from the view.
 - **Rationale**: Minimal surface change. `openEvent` is a UI-triggered action (open a sheet), not a data fetch — it is appropriate for the view to call it directly. Folding it into `CalendarEventService` would conflate fetch and navigation concerns.
 - **SPRD reference**: SPRD-228
+
+---
+
+## Event Row Styling in Day-List Content (SPRD-315)
+
+### Context
+
+Since SPRD-301, EventKit-backed events render as ordinary entry rows inside the day spread's list content (as ephemeral `DataModel.Event`s wrapping `CalendarEvent`, via `DataModel.Event.init(calendarEvent:)`). Those rows currently render with the neutral status-icon color and a permanently `.upcoming` status: `DataModel.Event.status` is hardcoded, and although `DataModel.Event.iconColor` already returns the calendar color, `iconColor` is only an `Entry` extension default — so `any Entry` call sites statically bind to `nil` and the override never renders.
+
+### Requirements
+
+- The status icon on an event row (the empty circle, plus any overlay) is tinted with the event's calendar color, matching the color shown for the same calendar in Day Timeline View. Title text, the scheduled-time block, and row layout are unchanged. [SPRD-315]
+- An event whose time has fully passed renders with the completed-task treatment driven by `.complete` status: X overlay on the icon and gray (secondary) title text. Unlike tasks, the icon and its overlay keep the calendar color when passed — rendered subdued (reduced opacity) rather than switching to the status gray. [SPRD-315]
+- "Passed" means: for timed events, the end time is earlier than the current time (an in-progress event still renders as upcoming, with calendar tint); for all-day events, the entire final day of the event is over in the spread's calendar. [SPRD-315]
+- This is display-only. No status is persisted, synced, or written back to EventKit or SwiftData. [SPRD-315]
+- Status re-evaluates at refresh moments only — spread display, foreground return, day change (all via `AppClock` observation through normal render invalidation). No per-minute timer. [SPRD-315]
+- The day-granularity `isGreyedOut` rule in `EntryRowView.Configuration.standardEventConfig` (`endDate < today`) is replaced by the same time-of-day passed rule so both paths agree. [SPRD-315]
+- The styling applies wherever these ephemeral event rows render (day spread list today; any future multiday day-section rows inherit it via the shared construction path). [SPRD-315]
+
+### Design Decisions
+
+### Decision: `iconColor` becomes an `Entry` protocol requirement
+
+- **Context**: `iconColor` exists only as an `Entry` extension default (`nil`) with a `DataModel.Event` override returning the calendar color. Because it is not a protocol requirement, `any Entry` call sites (`EntryRowView`) statically dispatch to the default and the override is unreachable.
+- **Decision**: Add `var iconColor: Color? { get }` to the `Entry` protocol. The `nil` default stays in the extension; only `DataModel.Event` overrides it.
+- **Rationale**: Dynamic dispatch is the entire feature — without the requirement, the existing override is dead code. Adding a requirement with a default is zero-cost for `Task`/`Note`.
+- **SPRD reference**: SPRD-315
+
+### Decision: Tint resolution is a view-layer rule keyed on status terminality
+
+- **Context**: The icon color must be the calendar color for live events, and a subdued version of that same color once passed, without per-type branching in `EntryRowView` (a type-blind renderer).
+- **Decision**: A resolved-color helper in the view layer (`EntryStatusPresentation.swift`): non-terminal statuses (`.open`, `.active`, `.upcoming`) use `entry.iconColor ?? status.iconColor`; terminal statuses (`.complete`, `.migrated`, `.cancelled`) use a subdued `entry.iconColor` (reduced opacity — one shared constant, no per-status values) when the entry provides a tint, falling back to `status.iconColor` when it doesn't. `EntryRowView.statusButton` feeds the resolved color to both base and overlay configs, so the icon and its overlay always match. Title text is untouched by this rule — it stays driven by `status.iconColor` and grays out when passed.
+- **Rationale**: Keeps `EntryRowView` type-blind (it reads only protocol members), keeps the tint/terminality rule in one place, and gives every future tinted entry type the same behavior for free. Tasks and notes are unaffected since their `iconColor` is `nil`, so the terminal branch resolves to the existing status gray.
+- **SPRD reference**: SPRD-315
+
+### Decision: Passed-ness is stamped at ephemeral construction, not computed live in `status`
+
+- **Context**: `status` is a synchronous protocol property with no access to a clock. Options: read `Date()` inside the model (hidden clock, breaks `AppClock` fixed-context/debug overrides, untestable), thread clock state through `EntryRowView.Configuration` closures plus a new overlay override (larger config surface, status stops being the single carrier of the completed look), or compute passed-ness once when the ephemeral wrapper is built.
+- **Decision**: A pure predicate `DataModel.Event.hasEnded(at now: Date, calendar: Calendar) -> Bool` carries the rule (timed: `endDate < now`; all-day: end of the final day ≤ `now`). The ephemeral init becomes `init(calendarEvent:asOf:calendar:)` and stamps `@Transient var hasPassed: Bool` (same pattern as the existing `@Transient var calendarEvent`). `DataModel.Event.status` returns `.complete` when `hasPassed`, else `.upcoming`. The stamping site is `DaySpreadContentView.ViewModel.sections(...)`, reading `journalManager.appClock.now` — `AppClock` is `@Observable`, so refresh moments re-render and re-stamp with no new observation plumbing.
+- **Rationale**: The clock stays injected at the layer that owns time; the predicate is unit-testable with a fixed date; the completed look continues to flow entirely from `EntryStatus`, so the X overlay, gray icon, and gray title need zero row changes.
+- **SPRD reference**: SPRD-315
+
+### Decision: Reuse `EntryStatus.complete`, no new status case
+
+- **Context**: A passed event could get a dedicated status (e.g. `.passed`) or reuse `.complete`.
+- **Decision**: Reuse `.complete`. The user-facing intent is "render exactly like a completed task" — same overlay, same colors.
+- **Rationale**: A new case would require touching every `EntryStatus` switch for an identical presentation. Events have no user-editable status, so there is no semantic collision with task completion.
+- **SPRD reference**: SPRD-315
 
 ---
 

@@ -46,7 +46,7 @@ struct RootNavigationView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            ForEach(Content.allCases) { content in
+            ForEach(Content.visibleCases(featureFlags: dependencies.featureFlags)) { content in
                 Tab(value: content) {
                     tabContent(for: content)
                 } label: {
@@ -59,6 +59,16 @@ struct RootNavigationView: View {
             }
         }
         .tabViewStyle(.automatic)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            // App-wide sync visibility: one mount point above every tab's content,
+            // replacing the former Spreads-only banner in SpreadContentPagerView. [SPRD-305]
+            if let syncEngine {
+                SyncStatusBanner(
+                    status: syncEngine.status,
+                    quarantinedCount: syncEngine.quarantinedCount
+                )
+            }
+        }
         .onChange(of: syncEngine?.status) { _, newValue in
             guard case .synced = newValue else { return }
             Task { @MainActor in await journalManager.reload() }

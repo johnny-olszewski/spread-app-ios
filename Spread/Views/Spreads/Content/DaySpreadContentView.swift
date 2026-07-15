@@ -4,15 +4,18 @@ import JohnnyOFoundationUI
 
 /// Renders the entry list for a day spread, with optional inline spread creation and navigation.
 ///
-/// In compact width the layout is a single scrollable entry list. Calendar events appear
-/// in a dedicated section within the list.
+/// Calendar events are ordinary entries in the list in both size classes — they flow through
+/// the same grouping/sorting pipeline as tasks and notes, so timed work lines up
+/// chronologically under Default sort. [SPRD-308]
+///
+/// In compact width the layout is a single scrollable entry list.
 ///
 /// In regular width the layout is horizontal when events are present:
 /// - Leading: a full-height card containing a `ScrollView` with a full-day `DayTimelineView`.
 ///   All-day events are pinned at the top of the card (outside the scroll). The timed grid
 ///   scrolls independently so the first event is visible on load.
-/// - Trailing: `EntryListView` with its own independent scroll. Calendar events are omitted
-///   from the list because the timeline card already surfaces them.
+/// - Trailing: `EntryListView` with its own independent scroll, complementing the timeline
+///   card rather than replaced by it.
 struct DaySpreadContentView: View {
 
     @State private var viewModel: ViewModel
@@ -24,7 +27,7 @@ struct DaySpreadContentView: View {
     let storedHorizontalSizeClass: UserInterfaceSizeClass?
 
     @AppStorage("entryGrouping.day") private var groupingOption: EntryGroupingOption = .list
-    @AppStorage("entrySorting.day") private var sortingOption: EntrySortOption = .dueDate
+    @AppStorage("entrySorting.day") private var sortingOption: EntrySortOption = .default
 
     init(
         spread: DataModel.Spread,
@@ -59,16 +62,8 @@ struct DaySpreadContentView: View {
                     EntryListOptionsPicker(
                         grouping: groupingOption,
                         sorting: sortingOption,
-                        sortingOptions: EntrySortOption.allCases,
                         onGroupingSelected: { groupingOption = $0 },
-                        onSortingSelected: { newSorting in
-                            sortingOption = newSorting
-                            // Time sort is a single chronological flow — grouping is
-                            // forced off and its submenu disabled while selected. [SPRD-301]
-                            if newSorting == .time {
-                                groupingOption = .none
-                            }
-                        }
+                        onSortingSelected: { sortingOption = $0 }
                     )
                     .padding(SpreadTheme.Spacing.large)
 
@@ -114,7 +109,8 @@ struct DaySpreadContentView: View {
                 VStack(spacing: SpreadTheme.Spacing.medium) {
                     EntryListView(
                         sections: viewModel.sections(groupedBy: groupingOption, orderedBy: sortingOption),
-                        configurationMap: viewModel.listConfigurationMap
+                        configurationMap: viewModel.listConfigurationMap,
+                        emptyStateMessage: "Nothing planned for this day yet. Add a task or note with the + button."
                     ) { section in
                         // Section ids are list names only when grouping by list — other groupings
                         // (tag/status/none) have no notion of a corresponding list to preselect.
@@ -131,6 +127,19 @@ struct DaySpreadContentView: View {
                             preselectedList: sectionList,
                             accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton,
                             onAddTask: viewModel.onAddTask
+                        )
+                    }
+
+                    // Open tasks from the containing multiday/month/year spreads, in
+                    // per-period cards below the day's own entries. A separate list keeps
+                    // the day's entries and the broader-horizon context as distinct units
+                    // with independent inputs (and its own empty behavior: absent, not an
+                    // empty state). [SPRD-309]
+                    let periodSections = viewModel.containingPeriodSections(orderedBy: sortingOption)
+                    if !periodSections.isEmpty {
+                        EntryListView(
+                            sections: periodSections,
+                            configurationMap: viewModel.listConfigurationMap
                         )
                     }
                 }

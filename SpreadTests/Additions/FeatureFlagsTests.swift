@@ -9,10 +9,11 @@ import Testing
 struct FeatureFlagsTests {
 
     /// In v1, events are deferred to v2.
-    /// The eventsEnabled flag must be false.
+    /// The events flag's build default must be false (SPRD-310 migrated this
+    /// from the former `FeatureFlags.eventsEnabled` constant).
     @Test("Events feature flag is disabled for v1")
     func eventsFeatureFlagIsDisabledForV1() {
-        #expect(FeatureFlags.eventsEnabled == false)
+        #expect(FeatureFlag.events.buildDefault == false)
     }
 
     /// When events are disabled,

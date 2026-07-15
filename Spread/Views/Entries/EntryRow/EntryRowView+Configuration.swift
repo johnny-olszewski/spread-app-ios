@@ -148,7 +148,9 @@ extension EntryRowView {
         /// Returns whether the due date label should use urgent styling.
         var isDueDateHighlighted: ((any Entry) -> Bool)?
 
-        /// Returns the subtitle shown below the title (e.g. event time range + calendar name).
+        /// Returns the subtitle shown below the title. Only the multiday peek panel sets
+        /// this today — standard day-list event rows carry no subtitle (title + leading
+        /// scheduled-time block only). [SPRD-308]
         var subtitle: ((any Entry) -> String?)?
 
         // MARK: - Action callbacks
@@ -210,7 +212,7 @@ extension EntryRowView.Configuration {
                 guard let task = entry as? DataModel.Task else { return }
                 
                 Task { @MainActor in
-                    let newStatus: EntryStatus = task.status.rotate(in: [.open, .complete, .cancelled])
+                    let newStatus: EntryStatus = task.status.rotate(in: EntryStatus.userEditableTaskStatuses)
                     try? await journalManager.updateTaskStatus(task, newStatus: newStatus)
                     await syncEngine?.syncNow()
                 }
@@ -273,42 +275,34 @@ extension EntryRowView.Configuration {
     }
 
     /// Standard calendar event row configuration shared across periods that surface calendar events.
+    ///
+    /// No `subtitle` — an event row is its title plus the leading scheduled-time block
+    /// (`scheduledStart`/`scheduledEnd`), which already conveys the time range; a subtitle
+    /// duplicated it and added row height. All-day events have no `scheduledStart`, so they
+    /// render title-only. [SPRD-308]
+    ///
+    /// No `isGreyedOut` rule: passed events gray out via `status == .complete`, stamped at
+    /// ephemeral construction (`DataModel.Event.init(calendarEvent:asOf:calendar:)`). [SPRD-315]
     @MainActor
-    static func standardEventConfig(journalManager: JournalManager) -> EntryRowView.Configuration {
-        let calendar = journalManager.configuredCalendar
-        let today = journalManager.today
-        return EntryRowView.Configuration(
-            isGreyedOut: typed(default: false) { (event: DataModel.Event) in
-                (event.calendarEvent?.endDate ?? event.endDate) < today
-            },
-            subtitle: typed { (event: DataModel.Event) -> String? in
-                guard let calEvent = event.calendarEvent else { return nil }
-                if calEvent.isAllDay {
-                    return "All Day · \(calEvent.calendarTitle)"
-                } else {
-                    let fmt = DateFormatter()
-                    fmt.calendar = calendar
-                    fmt.timeZone = calendar.timeZone
-                    fmt.timeStyle = .short
-                    fmt.dateStyle = .none
-                    return "\(fmt.string(from: calEvent.startDate))–\(fmt.string(from: calEvent.endDate)) · \(calEvent.calendarTitle)"
-                }
-            },
-        )
+    static func standardEventConfig() -> EntryRowView.Configuration {
+        EntryRowView.Configuration()
     }
 
-    /// Read-only task row configuration for review-only surfaces (currently just the overdue
-    /// card). The status icon still works — the caller supplies `onStatusIconTap` (e.g. to
+    /// Read-only task row configuration for the review panel's cards (Inbox / In Flight /
+    /// Overdue). The status icon still works — the caller supplies `onStatusIconTap` (e.g. to
     /// rotate status with a grace period before the row disappears). Tapping anywhere else on
     /// the row navigates straight to the task's source spread, or shows an informational alert
-    /// when the source is Inbox (no spread to navigate to). No inline title editing, no context
+    /// when the source is Inbox (no spread to navigate to) — unless `rowTapOverride` is
+    /// supplied, which replaces that default entirely (the Inbox segment opens the task edit
+    /// sheet instead). No inline title editing, no context
     /// menu (no `actions`).
     @MainActor
-    static func readOnlyOverdueTaskConfig(
+    static func readOnlyReviewTaskConfig(
         journalManager: JournalManager,
         coordinator: SpreadsCoordinator,
         sourceKey: @escaping (any Entry) -> TaskReviewSourceKey?,
         onStatusIconTap: @escaping (any Entry) -> Void,
+        rowTapOverride: ((any Entry) -> Void)? = nil,
         getChips: ((any Entry) -> [any LabelChipRepresentable])? = nil
     ) -> EntryRowView.Configuration {
 
@@ -343,7 +337,7 @@ extension EntryRowView.Configuration {
             },
             onStatusIconTap: onStatusIconTap,
             showAlert: { alert in coordinator.activeAlert = alert },
-            onRowTap: { entry in handleRowTap(on: entry) },
+            onRowTap: rowTapOverride ?? { entry in handleRowTap(on: entry) },
             getChips: { entry in getChips?(entry) ?? [] }
         )
     }

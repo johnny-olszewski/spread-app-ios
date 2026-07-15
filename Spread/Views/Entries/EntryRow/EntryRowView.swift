@@ -230,9 +230,10 @@ struct EntryRowView: View {
         } label: {
             EntryStatusIcon(
                 baseShape: entry.baseShape,
-                bseeShapeConfig: .init(color: entry.status.iconColor, iconSize: nil),
+                bseeShapeConfig: .init(color: entry.resolvedIconColor, iconSize: nil),
                 overlay: entry.status.overlayShape,
-                overlayConfig: .init(color: entry.status.iconColor, iconSize: nil)
+                overlayConfig: .init(color: entry.resolvedIconColor, iconSize: nil),
+                iconOverride: entry.status.iconOverride
             )
         }
         .buttonStyle(.plain)
@@ -448,6 +449,40 @@ private struct ContentColumnHeightKey: PreferenceKey {
     let config = EntryRowView.Configuration(
         isGreyedOut: { _ in false }
     )
+    List { EntryRowView(entry: event, configuration: config) }
+}
+
+#Preview("Event - Calendar Tint (Upcoming)") {
+    let start = Date.getDate(calendar: .current, year: 2026, month: 7, day: 10)?.addingTimeInterval(9.5 * 3600) ?? .now
+    let end = start.addingTimeInterval(3600)
+    let calendarEvent = CalendarEvent(
+        id: "preview-upcoming",
+        title: "Design review",
+        startDate: start,
+        endDate: end,
+        isAllDay: false,
+        calendarTitle: "Work",
+        calendarColor: .purple
+    )
+    let event = DataModel.Event(calendarEvent: calendarEvent, asOf: start.addingTimeInterval(-3600), calendar: .current)
+    let config = EntryRowView.Configuration()
+    List { EntryRowView(entry: event, configuration: config) }
+}
+
+#Preview("Event - Calendar Tint (Passed)") {
+    let start = Date.getDate(calendar: .current, year: 2026, month: 7, day: 10)?.addingTimeInterval(9.5 * 3600) ?? .now
+    let end = start.addingTimeInterval(3600)
+    let calendarEvent = CalendarEvent(
+        id: "preview-passed",
+        title: "Design review",
+        startDate: start,
+        endDate: end,
+        isAllDay: false,
+        calendarTitle: "Work",
+        calendarColor: .purple
+    )
+    let event = DataModel.Event(calendarEvent: calendarEvent, asOf: end.addingTimeInterval(3600), calendar: .current)
+    let config = EntryRowView.Configuration()
     List { EntryRowView(entry: event, configuration: config) }
 }
 

@@ -24,6 +24,9 @@ struct CollectionsListView: View {
     /// Whether a create operation is in progress.
     @State private var isCreating = false
 
+    /// Error message presented when a create or delete operation fails.
+    @State private var errorMessage: String?
+
     // MARK: - Body
 
     var body: some View {
@@ -67,6 +70,14 @@ struct CollectionsListView: View {
             if let collection = collectionToDelete {
                 Text("Are you sure you want to delete \"\(collection.title.isEmpty ? "Untitled" : collection.title)\"?")
             }
+        }
+        .alert("Error", isPresented: Binding(
+            get: { errorMessage != nil },
+            set: { if !$0 { errorMessage = nil } }
+        )) {
+            Button("OK") { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "")
         }
     }
 
@@ -121,17 +132,25 @@ struct CollectionsListView: View {
 
         Task {
             defer { isCreating = false }
-            try? await collectionRepository.save(collection)
-            await loadCollections()
-            await syncEngine?.syncNow()
+            do {
+                try await collectionRepository.save(collection)
+                await loadCollections()
+                await syncEngine?.syncNow()
+            } catch {
+                errorMessage = error.localizedDescription
+            }
         }
     }
 
     private func deleteCollection(_ collection: DataModel.Collection) {
         Task {
-            try? await collectionRepository.delete(collection)
-            await loadCollections()
-            await syncEngine?.syncNow()
+            do {
+                try await collectionRepository.delete(collection)
+                await loadCollections()
+                await syncEngine?.syncNow()
+            } catch {
+                errorMessage = error.localizedDescription
+            }
         }
     }
 }

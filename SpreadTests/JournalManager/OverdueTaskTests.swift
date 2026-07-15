@@ -109,4 +109,38 @@ struct OverdueTaskTests {
         #expect(manager.overdueTaskItems.first?.task.id == inboxTask.id)
         #expect(manager.overdueTaskItems.first?.sourceKey.kind == .inbox)
     }
+
+    /// Setup: two day tasks with identical past-due day assignments, one `.open` and one
+    /// `.inFlight` (SPRD-316's new non-terminal status, reachable via the task status cycle).
+    /// Expected: `overdueTaskItems` includes only the `.open` task — the existing `status == .open`
+    /// gate excludes `.inFlight` with no new gating code, pinning that invariant.
+    @Test @MainActor func inFlightTaskIsExcludedFromOverdueItems() async throws {
+        let calendar = Self.testCalendar
+        let today = calendar.date(from: DateComponents(year: 2026, month: 1, day: 12))!
+        let dayDate = calendar.date(from: DateComponents(year: 2026, month: 1, day: 10))!
+
+        let openTask = DataModel.Task(
+            title: "Open day task",
+            date: dayDate,
+            period: .day,
+            status: .open,
+            currentAssignments: [Assignment(period: .day, date: dayDate, status: .open)]
+        )
+        let inFlightTask = DataModel.Task(
+            title: "In flight day task",
+            date: dayDate,
+            period: .day,
+            status: .inFlight,
+            currentAssignments: [Assignment(period: .day, date: dayDate, status: .inFlight)]
+        )
+
+        let manager = try await JournalManager(
+            calendar: calendar,
+            today: today,
+            taskRepository: TestTaskRepository(tasks: [openTask, inFlightTask])
+        )
+
+        #expect(manager.overdueTaskCount == 1)
+        #expect(manager.overdueTaskItems.map(\.task.id) == [openTask.id])
+    }
 }

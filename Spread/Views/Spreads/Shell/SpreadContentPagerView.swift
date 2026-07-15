@@ -42,8 +42,8 @@ struct SpreadContentPagerView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @State private var scrollPhase: ScrollPhase = .idle
-    @State private var isOverduePanelOpen: Bool = false
-    @State private var overdueCardHeight: CGFloat = 0
+    @State private var isReviewPanelOpen: Bool = false
+    @State private var reviewPanelHeight: CGFloat = 0
 
     // MARK: - Init
 
@@ -73,32 +73,24 @@ struct SpreadContentPagerView: View {
                         .padding(.leading, SpreadTheme.Spacing.large)
                 }
                 .overlay(alignment: .trailing) {
-                    OverduePanelToggleButton(
-                        journalManager: journalManager,
-                        isOpen: $isOverduePanelOpen
-                    )
-                    .padding(.trailing, SpreadTheme.Spacing.large)
+                    ReviewPanelToggleButton(journalManager: journalManager, isOpen: $isReviewPanelOpen)
+                        .padding(.trailing, SpreadTheme.Spacing.large)
                 }
 
-            if isSyncError { SyncErrorBanner() }
-
             ZStack(alignment: .top) {
-                OverdueCardView(context: context)
-                    .opacity(isOverduePanelOpen ? 1 : 0)
+                ReviewPanelView(context: context)
+                    .opacity(isReviewPanelOpen ? 1 : 0)
                     .padding(.horizontal, SpreadTheme.Spacing.large)
                     .padding(.bottom, SpreadTheme.Spacing.medium)
-                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { overdueCardHeight = $0 }
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { reviewPanelHeight = $0 }
 
                 pager
-                    .offset(y: isOverduePanelOpen ? overdueCardHeight : 0)
-                    .animation(SpreadTheme.Motion.spring, value: isOverduePanelOpen)
+                    .offset(y: isReviewPanelOpen ? reviewPanelHeight : 0)
+                    .animation(SpreadTheme.Motion.spring, value: isReviewPanelOpen)
                     .simultaneousGesture(TapGesture().onEnded {
-                        if isOverduePanelOpen { isOverduePanelOpen = false }
+                        if isReviewPanelOpen { isReviewPanelOpen = false }
                     })
             }
-        }
-        .onChange(of: journalManager.overdueTaskItems.isEmpty) { _, isEmpty in
-            if isEmpty { isOverduePanelOpen = false }
         }
     }
 
@@ -179,12 +171,6 @@ struct SpreadContentPagerView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
-    }
-
-    private var isSyncError: Bool {
-        guard let status = syncEngine?.status else { return false }
-        if case .error = status { return true }
-        return false
     }
 
     /// Pushes the pager's settled position back to the coordinator once scrolling is idle,
@@ -333,26 +319,33 @@ private struct TodayNavigationButton: View {
     }
 }
 
-// MARK: - OverduePanelToggleButton
+// MARK: - ReviewPanelToggleButton
 
-/// Reads `journalManager.overdueTaskItems` in its own body scope so that changes to the overdue
-/// list do not trigger a full `SpreadContentPagerView` body re-run — only this lightweight button
-/// updates. Hidden when there are no overdue tasks.
-private struct OverduePanelToggleButton: View {
+/// Opens/closes the review panel (Inbox / In Flight / Overdue). Always visible — empty
+/// collections render their own empty states inside the panel, so there is no
+/// item-count-based hiding. Reads `journalManager.overdueTaskItems` in its own body scope
+/// (not `SpreadContentPagerView`'s) so the overdue-tint recomputation stays isolated to this
+/// lightweight button and doesn't re-run the pager body. The icon tints yellow whenever there
+/// are overdue tasks, drawing the eye to the panel the way the old dedicated overdue button
+/// did, and `.primary` otherwise. [SPRD-317]
+private struct ReviewPanelToggleButton: View {
     let journalManager: JournalManager
     @Binding var isOpen: Bool
 
     var body: some View {
-        if !journalManager.overdueTaskItems.isEmpty {
-            Button {
-                withAnimation(SpreadTheme.Motion.spring) { isOpen.toggle() }
-            } label: {
-                SpreadTheme.Icon.clockCountdown.sized(SpreadTheme.IconSize.medium)
-                    .iconTint(.yellow)
-            }
-            .buttonStyle(.plain)
-            .contentShape(Circle())
+        Button {
+            withAnimation(SpreadTheme.Motion.spring) { isOpen.toggle() }
+        } label: {
+            SpreadTheme.Icon.listBullets.sized(SpreadTheme.IconSize.medium)
+                .iconTint(hasOverdueTasks ? .yellow : .primary)
+                .animation(SpreadTheme.Motion.spring, value: hasOverdueTasks)
         }
+        .buttonStyle(.plain)
+        .contentShape(Circle())
+    }
+
+    private var hasOverdueTasks: Bool {
+        !journalManager.overdueTaskItems.isEmpty
     }
 }
 

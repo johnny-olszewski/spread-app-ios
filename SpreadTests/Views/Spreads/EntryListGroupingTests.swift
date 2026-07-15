@@ -45,8 +45,7 @@ struct EntryListGroupingTests {
             from: entries,
             spreadDate: spreadDate,
             groupingOption: .list,
-            sortingOption: .dueDate,
-            eventConfigurationMap: [:]
+            sortingOption: .dueDate
         )
 
         #expect(sections.count == 3)
@@ -65,7 +64,6 @@ struct EntryListGroupingTests {
     @Test("Day spread with no list assignments produces one unlisted section")
     func daySpreadWithNoListsProducesOneSection() {
         let spreadDate = makeDate(year: 2026, month: 4, day: 15)
-        // Events are separated into their own section; use only tasks and notes to test unlisted grouping.
         let entries: [any Entry] = [
             DataModel.Task(title: "Task 1", date: spreadDate),
             DataModel.Task(title: "Task 2", date: spreadDate),
@@ -76,8 +74,7 @@ struct EntryListGroupingTests {
             from: entries,
             spreadDate: spreadDate,
             groupingOption: .list,
-            sortingOption: .dueDate,
-            eventConfigurationMap: [:]
+            sortingOption: .dueDate
         )
 
         #expect(sections.count == 1)
@@ -101,8 +98,7 @@ struct EntryListGroupingTests {
             from: entries,
             spreadDate: spreadDate,
             groupingOption: .list,
-            sortingOption: .dueDate,
-            eventConfigurationMap: [:]
+            sortingOption: .dueDate
         )
 
         #expect(sections.count == 2)
@@ -125,8 +121,7 @@ struct EntryListGroupingTests {
             from: entries,
             spreadDate: spreadDate,
             groupingOption: .list,
-            sortingOption: .dueDate,
-            eventConfigurationMap: [:]
+            sortingOption: .dueDate
         )
 
         #expect(sections.count == 1)
@@ -141,15 +136,14 @@ struct EntryListGroupingTests {
             from: [],
             spreadDate: spreadDate,
             groupingOption: .list,
-            sortingOption: .dueDate,
-            eventConfigurationMap: [:]
+            sortingOption: .dueDate
         )
         #expect(sections.isEmpty)
     }
 
-    /// When entries within a day section have different dates,
-    /// they should be sorted chronologically.
-    @Test("Day spread entries sorted chronologically within section")
+    /// When entries within a day section share a nil due date, the Due Date sort falls
+    /// through the Default chain and orders them alphabetically by title. [SPRD-307]
+    @Test("Day spread nil-due-date entries fall back to title order within section")
     func daySpreadEntriesSortedChronologically() {
         let spreadDate = makeDate(year: 2026, month: 1, day: 1)
         let entries: [any Entry] = [
@@ -162,8 +156,7 @@ struct EntryListGroupingTests {
             from: entries,
             spreadDate: spreadDate,
             groupingOption: .list,
-            sortingOption: .dueDate,
-            eventConfigurationMap: [:]
+            sortingOption: .dueDate
         )
 
         #expect(sections.count == 1)
@@ -342,7 +335,8 @@ struct EntryListGroupingTests {
 
     /// `sortingOption` orders entries within each day card, even though `groupingOption`
     /// does not subdivide day cards.
-    /// Expected: a day card's entries are ordered alphabetically by title when `sortingOption == .title`.
+    /// Expected: a day card's entries are ordered alphabetically by title (untimed entries
+    /// under the Default chain) when `sortingOption == .default`. [SPRD-307]
     @Test("Multiday day card entries follow sortingOption")
     func multidayDayCardEntriesFollowSortingOption() {
         let startDate = makeDate(year: 2026, month: 1, day: 6)
@@ -359,7 +353,7 @@ struct EntryListGroupingTests {
             endDate: endDate,
             calendar: calendar,
             groupingOption: .none,
-            sortingOption: .title
+            sortingOption: .default
         )
 
         #expect(sections.count == 1)

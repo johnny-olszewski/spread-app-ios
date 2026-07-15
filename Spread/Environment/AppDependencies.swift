@@ -53,6 +53,9 @@ struct AppDependencies: @unchecked Sendable {
     /// Service for fetching calendar events for a spread's date range.
     let calendarEventService: any CalendarEventService
 
+    /// Resolves feature-flag state (build-time exclusion + future entitlement gating).
+    let featureFlags: any FeatureFlagProviding
+
     // MARK: - Factory Methods
 
     /// Creates app dependencies for live app use.
@@ -62,6 +65,7 @@ struct AppDependencies: @unchecked Sendable {
     /// - Throws: An error if model container creation fails.
     @MainActor
     static func makeForLive(
+        featureFlags: (any FeatureFlagProviding)? = nil,
         makeNetworkMonitor: @MainActor () -> any NetworkMonitoring = { NetworkMonitor() }
     ) throws -> AppDependencies {
         let modelContainer = try ModelContainerFactory.makePersistent()
@@ -81,7 +85,8 @@ struct AppDependencies: @unchecked Sendable {
             tagRepository: SwiftDataTagRepository(modelContainer: modelContainer),
             networkMonitor: makeNetworkMonitor(),
             eventKitService: LiveEventKitService(),
-            calendarEventService: LiveCalendarEventService(eventKitService: LiveEventKitService())
+            calendarEventService: LiveCalendarEventService(eventKitService: LiveEventKitService()),
+            featureFlags: featureFlags ?? FeatureFlagService()
         )
     }
 
@@ -106,6 +111,7 @@ struct AppDependencies: @unchecked Sendable {
         collectionRepository: (any CollectionRepository)? = nil,
         settingsRepository: (any SettingsRepository)? = nil,
         eventKitService: (any EventKitService)? = nil,
+        featureFlags: (any FeatureFlagProviding)? = nil,
         makeNetworkMonitor: @MainActor () -> any NetworkMonitoring = { NetworkMonitor() }
     ) throws -> AppDependencies {
         let resolvedModelContainer = try modelContainer ?? ModelContainerFactory.makeInMemory()
@@ -123,7 +129,8 @@ struct AppDependencies: @unchecked Sendable {
             tagRepository: EmptyTagRepository(),
             networkMonitor: makeNetworkMonitor(),
             eventKitService: eventKitService ?? MockEventKitService(),
-            calendarEventService: MockCalendarEventService()
+            calendarEventService: MockCalendarEventService(),
+            featureFlags: featureFlags ?? FeatureFlagService()
         )
     }
 
@@ -152,7 +159,8 @@ struct AppDependencies: @unchecked Sendable {
             tagRepository: MockTagRepository(),
             networkMonitor: makeNetworkMonitor(),
             eventKitService: MockEventKitService(),
-            calendarEventService: MockCalendarEventService()
+            calendarEventService: MockCalendarEventService(),
+            featureFlags: FeatureFlagService()
         )
     }
 

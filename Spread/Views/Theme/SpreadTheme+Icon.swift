@@ -39,6 +39,10 @@ extension SpreadTheme {
         case tagFilled
         case folder
         case folderFilled
+        /// In-flight task status — the user's part is done, an external process is pending. [SPRD-316]
+        case airplaneTilt
+        /// Review panel toggle — the pull-down Inbox / In Flight / Overdue surface. [SPRD-317]
+        case listBullets
 
         // MARK: - Navigation
 
@@ -141,6 +145,8 @@ extension SpreadTheme {
             case .star, .starFilled: .star
             case .tag, .tagFilled: .tag
             case .folder, .folderFilled: .folder
+            case .airplaneTilt: .airplaneTilt
+            case .listBullets: .listBullets
             case .house: .house
             case .arrowRight: .arrowRight
             case .arrowRightCircle, .arrowRightCircleFilled: .arrowCircleRight

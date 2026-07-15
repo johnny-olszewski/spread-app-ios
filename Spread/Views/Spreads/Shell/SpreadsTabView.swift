@@ -124,7 +124,11 @@ struct SpreadsTabView: View {
         ))
     }
 
-    /// Returns spreads in `year` sorted by start/date ascending.
+    /// Returns spreads in `year` sorted by start/date ascending, breaking start-date ties
+    /// so the broader container renders first — a multiday spread precedes a day spread that
+    /// starts on the same date (the multiday contains the day). Without this tiebreak the sort
+    /// key is start-date only, leaving same-start-date collisions in an undefined order
+    /// (Swift's sort is not guaranteed stable). [SPRD-314]
     ///
     /// A `static` function so it can be called from both `init` and `onChange` handlers
     /// without capturing `self`, and tested directly without a full SwiftUI environment.
@@ -135,7 +139,25 @@ struct SpreadsTabView: View {
     ) -> [DataModel.Spread] {
         spreads
             .filter { calendar.component(.year, from: $0.startDate ?? $0.date) == year }
-            .sorted { ($0.startDate ?? $0.date) < ($1.startDate ?? $1.date) }
+            .sorted { lhs, rhs in
+                let lhsStart = lhs.startDate ?? lhs.date
+                let rhsStart = rhs.startDate ?? rhs.date
+                if lhsStart != rhsStart { return lhsStart < rhsStart }
+                return pagerPeriodTiebreak(lhs.period) < pagerPeriodTiebreak(rhs.period)
+            }
+    }
+
+    /// Broader-container-first period rank for `buildYearSpreads`' same-start-date tiebreak
+    /// only: `year → month → multiday → day`, so a multiday precedes a day it contains.
+    /// Deliberately distinct from the global `year, month, day, multiday` rank
+    /// (`JournalManager.spreadPeriodSortOrder` / `Period.sortOrder`), which is unchanged. [SPRD-314]
+    private static func pagerPeriodTiebreak(_ period: Period) -> Int {
+        switch period {
+        case .year: 0
+        case .month: 1
+        case .multiday: 2
+        case .day: 3
+        }
     }
 
     /// Builds `navigatorCalendarModels` and `navigatorYearSpreads` in a single pass over
@@ -269,7 +291,7 @@ struct SpreadsTabView: View {
                 .toolbar {
                     ToolbarItem(placement: .navigationBarLeading) {
                         Button {
-                            withAnimation { isNavigatorVisible.toggle() }
+                            setNavigatorVisible(!isNavigatorVisible)
                         } label: {
                             (isNavigatorVisible ? SpreadTheme.Icon.caretLeft : SpreadTheme.Icon.calendar)
                                 .sized(SpreadTheme.IconSize.medium)
@@ -299,12 +321,9 @@ struct SpreadsTabView: View {
             }
             .dotGridBackground(.paper, ignoresSafeAreaEdges: .all)
         }
-        .onChange(of: isNavigatorVisible) { _, isVisible in
-            if isVisible { navigatorPresentationToken += 1 }
-        }
         .fullScreenCover(isPresented: Binding(
             get: { isNavigatorVisible && horizontalSizeClass != .regular },
-            set: { isNavigatorVisible = $0 }
+            set: { setNavigatorVisible($0) }
         )) {
             spreadsNavigatorView
                 .id(navigatorPresentationToken)
@@ -439,6 +458,21 @@ struct SpreadsTabView: View {
             return model
         }
         return nil
+    }
+
+    /// Opens or closes the navigator in a single animated transaction.
+    ///
+    /// When opening, `navigatorPresentationToken` is bumped **in the same transaction** as
+    /// `isNavigatorVisible` — not afterwards via `onChange` — so the regular-width column is
+    /// inserted exactly once with its final `.id`. Bumping the token a beat later swapped the
+    /// just-inserted view's identity mid-flight, tearing it down and re-inserting it, which
+    /// collapsed the `.move(edge: .leading)` slide into SwiftUI's default opacity fade. The
+    /// token still changes on every open, so the calendar re-runs its scroll-to-selection.
+    private func setNavigatorVisible(_ visible: Bool) {
+        withAnimation(SpreadTheme.Motion.spring) {
+            if visible { navigatorPresentationToken += 1 }
+            isNavigatorVisible = visible
+        }
     }
 
     /// Re-resolves the selection when the current spread is removed from the journal

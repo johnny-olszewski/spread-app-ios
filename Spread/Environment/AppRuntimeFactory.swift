@@ -33,6 +33,7 @@ enum AppRuntimeFactory {
         }
 
         let dependencies = try AppDependencies.makeForLive(
+            featureFlags: configuration.makeFeatureFlags?(),
             makeNetworkMonitor: configuration.makeNetworkMonitor
         )
         let runtime = try await makeRuntime(

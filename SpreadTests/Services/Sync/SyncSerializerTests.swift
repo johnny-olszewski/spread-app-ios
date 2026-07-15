@@ -67,6 +67,34 @@ struct SyncSerializerTests {
         #expect(result?.params is MergeEntryParams)
     }
 
+    /// Conditions: A task whose `scheduledTime` is nil and whose `scheduledTimeUpdatedAt`
+    /// is also nil (never explicitly stamped), serialized through the live outbox path
+    /// (`Task.serialize`) at a `timestamp` well after the task's `createdDate`.
+    /// Expected: The emitted `scheduled_time_updated_at` falls back to `createdDate`, not
+    /// `timestamp` — so a push carrying a stale/never-set nil time reports an old LWW
+    /// clock and cannot outrace (and clobber) a real scheduled time set later on another
+    /// device. Regression test for SPRD-312.
+    @Test func testSerializeScheduledTimeUpdatedAtFallsBackToCreatedDateNotNow() {
+        let created = Date(timeIntervalSince1970: 1_700_000_000)
+        let pushTimestamp = created.addingTimeInterval(86_400) // one day later
+        let task = DataModel.Task(
+            title: "Untimed task",
+            scheduledTime: nil,
+            createdDate: created,
+            date: created,
+            period: .day,
+            scheduledTimeUpdatedAt: nil
+        )
+
+        let data = task.serialize(deviceId: UUID(), timestamp: pushTimestamp)
+        let json = try! JSONSerialization.jsonObject(with: data!) as! [String: Any]
+
+        #expect(json["scheduled_time"] is NSNull)
+        #expect(json["scheduled_time_updated_at"] as? String == SyncDateFormatting.formatTimestamp(created))
+        // Contrast: a field without the SPRD-312 fix (title_updated_at) does fall back to `timestamp`.
+        #expect(json["title_updated_at"] as? String == SyncDateFormatting.formatTimestamp(pushTimestamp))
+    }
+
     /// Conditions: Valid collection record data.
     /// Expected: Should return merge_collection RPC name and MergeCollectionParams.
     @Test func testBuildMergeParamsForCollection() {
@@ -244,6 +272,44 @@ struct SyncSerializerTests {
     }
 
     // MARK: - Pull: createTask
+
+    /// Conditions: A timestamp string without fractional seconds — exactly how Postgres
+    /// serializes a whole-second timestamptz (it omits a zero fractional part), e.g. a
+    /// user-picked scheduled time, which always lands on :00.000.
+    /// Expected: `parseTimestamp` parses it, and to the same instant as the fractional
+    /// form. Regression test for SPRD-312's pull-side bug: the fractional-seconds-only
+    /// formatter returned nil for these strings, silently nulling scheduled times on
+    /// every pull while all `Date.now`-derived timestamps (always fractional) parsed fine.
+    @Test func testParseTimestampAcceptsWholeSecondPostgresFormat() {
+        let wholeSecond = SyncDateFormatting.parseTimestamp("2026-07-14T21:36:00+00:00")
+        let fractional = SyncDateFormatting.parseTimestamp("2026-07-14T21:36:00.000+00:00")
+
+        #expect(wholeSecond != nil)
+        #expect(fractional != nil)
+        #expect(wholeSecond == fractional)
+    }
+
+    /// Conditions: A pulled task row whose `scheduled_time` has no fractional seconds
+    /// (the Postgres whole-second form), applied to an existing local task with no time —
+    /// the exact live-reported repro: time pushed successfully, then wiped locally by pull.
+    /// Expected: Both `applyTaskRow` and `createTask` produce a non-nil `scheduledTime`.
+    @Test func testPullAppliesWholeSecondScheduledTime() {
+        let row = ServerEntryRow(
+            id: UUID(), type: "task", title: "Surf 28", content: nil,
+            date: "2026-07-14", period: "day", status: "open",
+            body: nil, priority: "none", dueDate: nil,
+            scheduledTime: "2026-07-14T21:36:00+00:00", listId: nil,
+            createdAt: "2026-07-12T19:50:07.942Z", deletedAt: nil, revision: 3844
+        )
+
+        let existing = DataModel.Task(title: "Surf 28", scheduledTime: nil, date: nil, period: nil)
+        let applied = SyncSerializer.applyTaskRow(row, to: existing)
+        #expect(applied)
+        #expect(existing.scheduledTime == SyncDateFormatting.parseTimestamp("2026-07-14T21:36:00.000+00:00"))
+
+        let created = SyncSerializer.createTask(from: row)
+        #expect(created?.scheduledTime != nil)
+    }
 
     /// Conditions: Valid server entry row of type task.
     /// Expected: Should create a task with matching properties.

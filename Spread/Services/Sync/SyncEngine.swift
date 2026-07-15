@@ -36,6 +36,10 @@ final class SyncEngine {
     /// The number of pending outbox mutations.
     private(set) var outboxCount: Int = 0
 
+    /// The number of quarantined outbox mutations — changes that failed to
+    /// serialize and are held for manual retry rather than pushed (SPRD-305).
+    private(set) var quarantinedCount: Int = 0
+
     /// The sync event log.
     let syncLog = SyncLog()
 
@@ -245,14 +249,48 @@ final class SyncEngine {
             logger.debug("Enqueued \(operation.rawValue) for \(entityType.rawValue) \(entityId)")
         } catch {
             logger.error("Failed to enqueue mutation: \(error)")
+            syncLog.error("Failed to queue a change for sync")
+            status = .error("A change couldn't be queued for sync.")
         }
     }
 
-    /// Refreshes the outbox count from the store.
+    /// Refreshes the outbox and quarantine counts from the store.
     func refreshOutboxCount() {
         let context = modelContainer.mainContext
         let descriptor = FetchDescriptor<DataModel.SyncMutation>()
         outboxCount = (try? context.fetchCount(descriptor)) ?? 0
+        let quarantined = FetchDescriptor<DataModel.SyncMutation>(
+            predicate: #Predicate { $0.quarantinedAt != nil }
+        )
+        quarantinedCount = (try? context.fetchCount(quarantined)) ?? 0
+    }
+
+    /// Returns quarantined mutations to the live queue and re-attempts a sync.
+    ///
+    /// The manual recovery path behind Settings' "Retry" action: clears
+    /// `quarantinedAt` and the backoff counter on every quarantined mutation so
+    /// the next push re-attempts serialization. Mutations that still fail to
+    /// serialize are re-quarantined by that push (SPRD-305).
+    func retryQuarantined() async {
+        let context = modelContainer.mainContext
+        let descriptor = FetchDescriptor<DataModel.SyncMutation>(
+            predicate: #Predicate { $0.quarantinedAt != nil }
+        )
+        do {
+            let quarantined = try context.fetch(descriptor)
+            guard !quarantined.isEmpty else { return }
+            for mutation in quarantined {
+                mutation.quarantinedAt = nil
+                mutation.retryCount = 0
+            }
+            try context.save()
+            refreshOutboxCount()
+            syncLog.info("Retrying \(quarantined.count) quarantined changes")
+        } catch {
+            logger.error("Failed to reset quarantined mutations: \(error)")
+            return
+        }
+        await syncNow()
     }
 
     // MARK: - Core Sync
@@ -335,6 +373,7 @@ final class SyncEngine {
     private func push() async throws {
         let context = modelContainer.mainContext
         let descriptor = FetchDescriptor<DataModel.SyncMutation>(
+            predicate: #Predicate { $0.quarantinedAt == nil },
             sortBy: [SortDescriptor(\.createdDate, order: .forward)]
         )
         let mutations = try context.fetch(descriptor)
@@ -366,8 +405,9 @@ final class SyncEngine {
 
             let failedMutationIDs = Set(batch.failedMutationIDs)
             for mutation in typeMutations where failedMutationIDs.contains(mutation.id) {
-                logger.warning("Failed to build params for mutation \(mutation.id), removing")
-                context.delete(mutation)
+                logger.warning("Failed to build params for mutation \(mutation.id), quarantining")
+                syncLog.error("Quarantined unserializable \(entityType.rawValue) change")
+                mutation.quarantinedAt = .now
             }
 
             let validMutations = typeMutations.filter { !failedMutationIDs.contains($0.id) }

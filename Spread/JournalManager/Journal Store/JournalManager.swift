@@ -420,6 +420,13 @@ final class JournalManager {
         inboxEntries.count
     }
 
+    /// The review panel's Inbox segment content: `inboxEntries` filtered to tasks only (notes
+    /// excluded), additionally excluding `.inFlight` tasks, which belong exclusively to the
+    /// In Flight segment even when unassigned [SPRD-317].
+    var reviewInboxTasks: [DataModel.Task] {
+        inboxEntries.compactMap { $0 as? DataModel.Task }.filter { $0.status != .inFlight }
+    }
+
     // MARK: - Migration Queries
 
     /// Tasks eligible to move into created spreads in conventional mode.
@@ -470,13 +477,23 @@ final class JournalManager {
     // MARK: - Overdue
 
     /// Open tasks that are overdue anywhere in the journal.
-    var overdueTaskItems: [OverdueTaskItem] {
+    var overdueTaskItems: [TaskReviewItem] {
         ruleEngine.overdueTaskItems(tasks: tasks, spreads: spreads)
     }
 
     /// The global overdue count used by the toolbar review button.
     var overdueTaskCount: Int {
         overdueTaskItems.count
+    }
+
+    /// Tasks currently in flight (`status == .inFlight`, SPRD-316) anywhere in the journal.
+    var inFlightTaskItems: [TaskReviewItem] {
+        ruleEngine.inFlightTaskItems(tasks: tasks, spreads: spreads)
+    }
+
+    /// The global in-flight count used by the review panel's In Flight segment.
+    var inFlightTaskCount: Int {
+        inFlightTaskItems.count
     }
 
     // MARK: - Spread Management

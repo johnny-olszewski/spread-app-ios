@@ -18,7 +18,7 @@ struct MultidaySpreadContentView: View {
     let scrollToTodayToken: Int
 
     @AppStorage("entryGrouping.multiday") private var groupingOption: EntryGroupingOption = .none
-    @AppStorage("entrySorting.multiday") private var sortingOption: EntrySortOption = .dueDate
+    @AppStorage("entrySorting.multiday") private var sortingOption: EntrySortOption = .default
 
     init(
         spread: DataModel.Spread,
@@ -55,8 +55,14 @@ struct MultidaySpreadContentView: View {
                     .padding(.horizontal, SpreadTheme.Spacing.large)
                 }
 
+                let sections = viewModel.sections(groupedBy: groupingOption, orderedBy: sortingOption)
+                if sections.allSatisfy({ $0.entries.isEmpty }) {
+                    EntryListEmptyStateView(
+                        message: "Nothing planned for these days yet. Add a task or note with the + button."
+                    )
+                }
                 LazyVStack(alignment: .leading, spacing: SpreadTheme.Spacing.large) {
-                    ForEach(viewModel.sections(groupedBy: groupingOption, orderedBy: sortingOption)) { section in
+                    ForEach(sections) { section in
                         if section.creationPeriod == .multiday {
                             multidayEntrySection(section)
                         } else {

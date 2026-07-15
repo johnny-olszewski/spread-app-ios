@@ -439,40 +439,62 @@ struct JournalRuleEngine {
     /// - Parameters:
     ///   - tasks: All tasks in the journal.
     ///   - spreads: All existing spreads, used to locate a task's current open assignment.
-    /// - Returns: `OverdueTaskItem` values for each overdue open task.
+    /// - Returns: `TaskReviewItem` values for each overdue open task.
     func overdueTaskItems(
         tasks: [DataModel.Task],
         spreads: [DataModel.Spread]
-    ) -> [OverdueTaskItem] {
+    ) -> [TaskReviewItem] {
         tasks.compactMap { task in
             overdueTaskItem(for: task, spreads: spreads)
+        }
+    }
+
+    /// Returns all tasks currently in flight (`status == .inFlight`, SPRD-316).
+    ///
+    /// Unlike `overdueTaskItems`, there is no date/overdue-threshold gate here — an in-flight
+    /// task is included regardless of its due date, since the In Flight segment is about
+    /// active work-in-progress, not lateness. Source resolution accepts assignments in either
+    /// `.open` or `.inFlight` status: a task marked in flight via the row tap keeps its `.open`
+    /// assignment, but one migrated/reassigned *while* in flight gets `.inFlight` stamped onto
+    /// its destination assignment by `reconcilePreferredAssignment` — the `.open`-only
+    /// `currentDestinationSpread` predicate would wrongly report that task as Inbox-sourced.
+    /// The resolved spread feeds the same `taskReviewItem(for:openSpread:)` helper
+    /// `overdueTaskItems` relies on, so both segments agree on how a location becomes a key.
+    ///
+    /// - Parameters:
+    ///   - tasks: All tasks in the journal.
+    ///   - spreads: All existing spreads, used to locate a task's current assignment.
+    /// - Returns: `TaskReviewItem` values for each in-flight task.
+    func inFlightTaskItems(
+        tasks: [DataModel.Task],
+        spreads: [DataModel.Spread]
+    ) -> [TaskReviewItem] {
+        tasks.compactMap { task in
+            guard task.status == .inFlight else {
+                return nil
+            }
+            let sourceSpread = candidateSpreads(for: task, spreads: spreads, excluding: nil) {
+                $0.status == .open || $0.status == .inFlight
+            }
+            return taskReviewItem(for: task, openSpread: sourceSpread)
         }
     }
 
     private func overdueTaskItem(
         for task: DataModel.Task,
         spreads: [DataModel.Spread]
-    ) -> OverdueTaskItem? {
+    ) -> TaskReviewItem? {
         guard task.status == .open else {
             return nil
         }
 
-        if let openSpread = currentDestinationSpread(
-            for: task,
-            spreads: spreads,
-            excluding: nil
-        ) {
-            let sourceKey = TaskReviewSourceKey(
-                kind: .spread(
-                    id: openSpread.id,
-                    period: openSpread.period,
-                    date: openSpread.period.normalizeDate(openSpread.date, calendar: calendar)
-                )
-            )
+        let openSpread = currentDestinationSpread(for: task, spreads: spreads, excluding: nil)
+
+        if let openSpread {
             guard isOverdue(spread: openSpread) else {
                 return nil
             }
-            return OverdueTaskItem(task: task, sourceKey: sourceKey)
+            return taskReviewItem(for: task, openSpread: openSpread)
         }
 
         guard let taskDate = task.date,
@@ -480,7 +502,32 @@ struct JournalRuleEngine {
               isOverdue(date: taskDate, period: taskPeriod) else {
             return nil
         }
-        return OverdueTaskItem(task: task, sourceKey: .init(kind: .inbox))
+        return taskReviewItem(for: task, openSpread: nil)
+    }
+
+    /// Builds a `TaskReviewItem` for `task` given its already-resolved current open spread (or
+    /// `nil` for the Inbox), without any status or overdue-threshold gating.
+    ///
+    /// Shared by `overdueTaskItem(for:spreads:)` and `inFlightTaskItems` — both resolve `task`'s
+    /// current location via `currentDestinationSpread` first (applying their own distinct
+    /// gating/threshold logic to that result), then hand the resolved spread here to build the
+    /// `TaskReviewSourceKey` the same way in both places.
+    private func taskReviewItem(
+        for task: DataModel.Task,
+        openSpread: DataModel.Spread?
+    ) -> TaskReviewItem {
+        guard let openSpread else {
+            return TaskReviewItem(task: task, sourceKey: .init(kind: .inbox))
+        }
+
+        let sourceKey = TaskReviewSourceKey(
+            kind: .spread(
+                id: openSpread.id,
+                period: openSpread.period,
+                date: openSpread.period.normalizeDate(openSpread.date, calendar: calendar)
+            )
+        )
+        return TaskReviewItem(task: task, sourceKey: sourceKey)
     }
 
     private func isOverdue(spread: DataModel.Spread) -> Bool {

@@ -1,7 +1,7 @@
 # Spread Navigation
 
 > Source: Documentation/spec.md  
-> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232, SPRD-236, SPRD-238, SPRD-244, SPRD-275, SPRD-283, SPRD-284, SPRD-285, SPRD-289, SPRD-290, SPRD-295
+> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232, SPRD-236, SPRD-238, SPRD-244, SPRD-275, SPRD-283, SPRD-284, SPRD-285, SPRD-289, SPRD-290, SPRD-295, SPRD-317
 
 ### Spread View Architecture
 - The spread shell should converge on a single top-level `SpreadsView` rather than separate conventional and traditional root view trees. [SPRD-163, SPRD-164, SPRD-165]
@@ -1019,6 +1019,54 @@ Also recompute `yearSpreads` when `journalManager.spreads` changes (e.g. a new s
 - **Decision**: Add a `.simultaneousGesture(TapGesture())` on the pager that sets `isOverduePanelOpen = false` when the panel is open.
 - **Rationale**: Tapping the pager is the natural "go back to my journal" affordance. `.simultaneousGesture` preserves normal pager tap-through behavior (page scrolling, entry taps) while also closing the panel.
 - **SPRD reference**: [SPRD-289]
+
+### Open Questions
+
+- None.
+
+---
+
+## Review Panel: Inbox / In Flight / Overdue [SPRD-317]
+
+### Problem
+
+The SPRD-289 pull-down panel above the pager surfaces only overdue tasks. Two other "needs my attention outside any one spread" collections exist with no equivalent surface: Inbox tasks (no spread assignment) and the new In Flight tasks (SPRD-316 — user's part done, waiting on an external process). The panel generalizes into a three-segment review surface so all three collections are reachable from the same gesture.
+
+### Requirements
+
+- The panel gains a segmented control (custom-styled, not necessarily `UISegmentedControl`/`Picker(.segmented)`) with three segments in order: **Inbox**, **In Flight**, **Overdue**. [SPRD-317]
+- Each segment label shows its live item count (e.g. "Inbox 3"). [SPRD-317]
+- Segment selection is remembered for the session (`@State`-scoped, not persisted): reopening the panel lands on the last-viewed segment. [SPRD-317]
+- The toggle button is **always visible** (no longer gated on `overdueTaskItems` being non-empty) and its icon changes from `clockCountdown` to a new `SpreadTheme.Icon.listBullets` (Phosphor `Ph.listBullets`, `.regular`). [SPRD-317]
+- Empty segments stay selectable and render an empty-state UI (short message in the card area); the panel does not auto-close when a segment (or all segments) empties. The SPRD-289 auto-close-on-empty behavior is removed. [SPRD-317]
+- **Overdue segment**: existing `OverdueCardView` content and behavior, unchanged (source-spread grouping, read-only rows, tap navigates to source spread or shows the Inbox notice, status-icon cycling with the 5-second grace period). [SPRD-317]
+- **In Flight segment**: all tasks with status `.inFlight` journal-wide, grouped by current source spread (or Inbox) exactly like the overdue card, with the same read-only row treatment: row tap navigates to the source spread (informational notice for Inbox-origin), status-icon tap cycles status with the same grace-period mechanic (cycling to `.complete` would otherwise remove the row mid-tap). Requires a `JournalManager` accessor for in-flight task items reusing the `TaskReviewSourceKey` machinery. [SPRD-317]
+- **Inbox segment**: inbox **tasks only** (notes excluded — `inboxEntries` is filtered to `DataModel.Task`). Row tap opens `TaskEntrySheet` for the task so it can be assigned to a spread in place (inbox triage); status-icon tap cycles with the grace period. [SPRD-317]
+- No double-appearance: an in-flight task appears only in the In Flight segment — never in Overdue (already enforced by the `status == .open` overdue gate, SPRD-316) and never in Inbox even when it has no assignment (In Flight wins for unassigned in-flight tasks). [SPRD-317]
+- Unit tests cover segment content derivation (in-flight collection + grouping, inbox task-only filtering, the no-double-appearance invariant, per-segment counts); the control styling, empty states, and reveal animation are verified via previews/manual inspection. [SPRD-317]
+
+### Design Decisions
+
+#### Decision: Generalize the existing panel slot, not a new surface
+
+- **Context**: Inbox and In Flight could each have gotten their own affordance (separate buttons, a sheet, a tab).
+- **Decision**: The single SPRD-289 pull-down slot hosts all three collections behind a segmented control; the reveal mechanics (pager offset, measured height, tap-pager-to-dismiss) are unchanged.
+- **Rationale**: One gesture, one place for "things needing review outside any one spread." The slide-down mechanics were built spread-agnostic in SPRD-289 and need no rework — only the revealed content changes.
+- **SPRD reference**: [SPRD-317]
+
+#### Decision: In Flight and Inbox segments reuse the overdue card's row vocabulary
+
+- **Context**: The overdue card already solved review-surface row behavior: read-only rows, source-key grouping, interactive status icon with a grace period so rows don't vanish under the user's finger.
+- **Decision**: All three segments render through the same section-building + `readOnlyOverdueTaskConfig`-style configuration mechanics, differing only in item source and row-tap action (navigate for In Flight/Overdue; open `TaskEntrySheet` for Inbox).
+- **Rationale**: Consistent behavior across segments, and the grace-period problem applies identically wherever a status tap can remove a row from the surface showing it.
+- **SPRD reference**: [SPRD-317]
+
+#### Decision: Always-visible toggle with per-segment empty states
+
+- **Context**: The SPRD-289 button hid itself when there was nothing overdue; with three collections, gating visibility on any/all being non-empty makes the affordance unpredictable.
+- **Decision**: The button always shows (new `listBullets` icon); empty segments render a lightweight empty state; nothing auto-closes.
+- **Rationale**: A stable, discoverable entry point. The panel is user-opened (SPRD-289 intent), so an occasional empty segment costs nothing.
+- **SPRD reference**: [SPRD-317]
 
 ### Open Questions
 

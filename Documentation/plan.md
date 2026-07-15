@@ -6050,7 +6050,7 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-230] Refactor: Entry edit popover, remove inspector - [ ] Pending
+### [SPRD-230] Refactor: Entry edit popover, remove inspector - [ ] Backlog (cut from MVP scope 2026-07-12; entry editing works via the SESH-27/28 sheet redesign — revisit post-launch)
 
 - **Context**: `RootNavigationView` uses `.inspector()` for all `SpreadsCoordinator.SheetDestination` cases. After SPRD-229, the inspector approach is replaced: task and note detail editing should open as a `.popover` anchored to the Edit swipe-action button with a trailing arrow. Other sheet destinations (creation sheets, spread name edit, etc.) remain as `.sheet`.
 - **Description**: Remove the `.inspector()` modifier from `RootNavigationView`. Wire `TaskDetailSheet` and `NoteDetailSheet` as `.popover(item:arrowEdge:.trailing)` anchored to the swipe-action Edit button on each entry row. All other `SpreadsCoordinator.SheetDestination` cases (spread creation, task creation, note creation, spread name edit, spread date edit, peek data, auth) remain presented as `.sheet`. On compact (iPhone), SwiftUI automatically collapses `.popover` to a sheet — no manual branching needed.
@@ -7759,3 +7759,340 @@ Sub-agent plan for implementing this feature with less-capable models working in
 - **Wave 3 — integration (one agent, after all of Wave 2 for meaningful QA; hard dependency only on 296/300)**
   - SPRD-301: `EntrySortOption`, `EntryListOptionsPicker`, `DaySpreadContentView+ViewModel.makeSections` + tests.
 - **Merge order**: 296 → (297, 298, 299, 300 in any order) → 301. Conflicts are unlikely by construction (file-disjoint waves); the orchestrator resolves any that appear at merge time.
+
+---
+
+## Story: Release hardening — MVP Workstream A (SESH-30)
+
+Release-blocker fixes from `Documentation/mvp-launch.md` §3, surfaced by the pre-release audit. Spec: `Documentation/Specs/ReleaseHardening.md`. One SPRD per hardening area; §3.6 polish tier (validation, accessibility, smoke tests) is specced separately later.
+
+### [SPRD-302] Fix: Surface silent save failures in edit sheets, Settings, and Collections - [ ] Done
+
+- **Context**: The pre-release audit found user-initiated saves that fail silently, with no error shown — a data-loss UX on a journaling app (backlog TF-05).
+- **Description**: Populate the existing error-alert plumbing on the failing paths. `TaskEntrySheet` and `NoteEntrySheet` **edit-mode** `save()` catch blocks must set `viewModel.errorMessage` (not just reset `isBusy`), matching their create-mode paths. `SettingsView` must render its already-assigned-but-unshown `saveError`. Collections persistence (`CollectionEditorView`, `CollectionsListView`) must not swallow failures via `try?`. No changes to the create-mode paths, which already work.
+- **Spec**: `Documentation/Specs/ReleaseHardening.md` — Requirements › Silent save failures
+- **Acceptance Criteria**:
+  - AC1: A failing task edit-save keeps the sheet open and shows the `EntrySheet` error alert with a readable message; `isBusy` is reset.
+  - AC2: A failing note edit-save behaves identically.
+  - AC3: A failing first-weekday save in `SettingsView` surfaces a visible error (alert or inline), not a silent no-op.
+  - AC4: Collections create/edit/delete failures surface an error instead of being dropped by `try?`.
+  - AC5: Build succeeds; existing entry-sheet tests pass.
+- **Tests**:
+  - Unit tests asserting the task and note edit-save view models set `errorMessage` on a repository/save failure (inject a failing repository), covering AC1–AC2.
+
+**Progress (commits landed on feature/SESH-30)**
+1. **[SPRD-302][1/n]** — Task + Note edit-save error surfacing. Moved each sheet's edit-mode `save()` routine onto its `@Observable ViewModel` as `saveEdits(to:journalManager:) async -> Bool` (behavior-preserving lift; the missing `errorMessage = error.localizedDescription` added in the catch), with the shared `createPendingMultidaySpreadIfNeeded` helper moved alongside so create/edit paths share one copy; views keep only success-dismissal. Picked first because it's the testability seam the other AC1/AC2 work hangs off. New error-injecting `MockTaskRepository`/`MockNoteRepository` (main target, `Mock*` convention). 4 new tests in `TaskEntrySheetViewModelSaveTests`/`NoteEntrySheetViewModelSaveTests` (failure sets `errorMessage` + resets `isBusy`; success returns true, no error). Full suite: 1397 tests green. AC1 ✅ AC2 ✅
+2. **[SPRD-302][2/n]** — `SettingsView` now presents its `saveError` as a "Couldn't Save Settings" alert (same isPresented-binding pattern as `EntrySheet`'s error alert); previously the state was assigned but never rendered. View-only change, no logic; build green. AC3 ✅
+3. **[SPRD-302][3/n]** — Collections error surfacing. `CollectionsListView` create/delete: `try?` → do/catch with an Error alert (mirrors the view's existing delete-confirmation alert pattern). `CollectionEditorView` debounced auto-save: `try?` → do/catch with a non-intrusive inline "Changes aren't saving" caption under the title (an alert would interrupt typing on autosave); failure now keeps `hasUnsavedChanges = true` so the next keystroke/disappear retries, and the indicator clears on the next successful save. AC4 ✅ — all ACs done, task complete.
+
+### [SPRD-303] Feature: Replace launch-init fatalError with an error screen + in-place retry - [ ] Done
+
+- **Context**: Runtime-init failure hard-crashes the app via `fatalError` in `ContentView`, with no user recourse — disqualifying for a beta (backlog TF-02).
+- **Description**: Replace the `fatalError` with a readable error screen presented from the app-init path. The screen offers a **Try Again** affordance that re-runs runtime initialization in-process; a repeated failure returns to the same screen. Build-config `fatalError`s in `SupabaseConfiguration` (missing Info.plist keys) are out of scope. Updates `ErrorHandling.md`'s superseded "no recovery attempted" statement.
+- **Spec**: `Documentation/Specs/ReleaseHardening.md` — Requirements › Launch initialization error recovery
+- **Acceptance Criteria**:
+  - AC1: When runtime initialization fails, the app shows an error screen instead of crashing.
+  - AC2: Tapping Try Again re-runs initialization without a force-quit; on success the app proceeds to the normal root UI.
+  - AC3: A repeated initialization failure returns to the error screen (no crash, no infinite spinner).
+  - AC4: The `SupabaseConfiguration` build-config paths are unchanged.
+  - AC5: Build succeeds.
+- **Tests**:
+  - Unit tests around the init-retry state machine: a failing-then-succeeding initializer transitions error → success on retry; a persistently-failing initializer stays in the error state (inject a controllable runtime-store/initializer).
+
+**Progress (commits landed on feature/SESH-30)**
+1. **[SPRD-303][1/n]** — `ContentView.initializeApp()` no longer calls `fatalError`; failure logs and presents `initializationErrorView` (title, readable message, borderedProminent "Try Again" re-running `initializeIfNeeded()`), styled to match `loadingView`. `AppRuntimeStore.isInitializing` promoted to observable `private(set)` so the view shows `loadingView` during a retry instead of the stale error. The store's guard (`runtime == nil`) already made re-invocation retry-safe — no state-machine changes needed. 2 new tests in the existing `AppRuntimeStoreTests` (retry-after-failure clears the error and builds the runtime; persistent failure stays in the error state across attempts); suite green (4 tests). `SupabaseConfiguration` untouched per AC4. All ACs ✅ — single-commit task.
+
+### [SPRD-304] Feature: Purposeful empty states across all four spread content views - [ ] Done
+
+- **Context**: Empty spreads render a blank area, eroding confidence and hiding the app's value; a designed `ContentUnavailableView` empty state already exists in `EntryListView` but is dead code (backlog TF-10/TF-11).
+- **Description**: Wire the existing `EntryListView` empty state into day, month, year, and multiday content views, with messaging differentiated per spread type. The empty state is informational, guiding the user to the existing global "+" affordance — not a tappable create control. Starter content and first-run guided creation are out of scope (`mvp-launch.md` §4).
+- **Spec**: `Documentation/Specs/ReleaseHardening.md` — Requirements › Spread empty states
+- **Acceptance Criteria**:
+  - AC1: Each of the four spread content views shows a `ContentUnavailableView`-style empty state when it has no entries.
+  - AC2: The message text differs meaningfully by spread type (day/month/year/multiday).
+  - AC3: The empty state is informational only — it does not open the create flow and introduces no second create button.
+  - AC4: A spread with entries renders normally (no empty state), and adding the first entry removes the empty state.
+  - AC5: The previously-unused `EntryListView.emptyState`/`hasAnyEntries` are now referenced; no dead code remains for this path. Build succeeds.
+- **Tests**:
+  - Manual/visual verification across the four spread types in light and dark mode, plus previews for the empty vs. populated states.
+
+**Progress (commits landed on feature/SESH-30)**
+1. **[SPRD-304][1/n]** — Promoted the dead `EntryListView.emptyState` into a shared `EntryListEmptyStateView` component (message param, "No Entries" title, tray icon, previews). `EntryListView` gains optional `emptyStateMessage` and finally uses `hasAnyEntries`: with a message it renders the empty state when no section has a renderable entry; nil preserves render-nothing for embedded/inline usages (month/year subsection lists). Day passes its message directly; Month/Year/Multiday gate a whole-spread `hasNoEntries` condition (month: monthEntries + all daySections empty; year: spreadDataModel tasks+notes empty, month cards still render; multiday: all sections empty, day cards still render for structure). All messages differ per spread type and are informational — no new create affordance. Full suite green (1399). Manual light/dark sweep across the four types recommended at next run. All ACs ✅ — single-commit task.
+
+### [SPRD-305] Feature: Sync/offline visibility and outbox quarantine for unserializable mutations - [ ] Done
+
+- **Context**: Sync/offline status is confined to the Spreads tab, and a queued mutation that fails to serialize is silently removed from the outbox — a data-loss path with no user signal (backlog TF-12/TF-13).
+- **Description**: Quarantine a mutation that fails to serialize (retain it in the outbox in a failed/flagged state, excluded from the retry loop so it can't stall the queue) instead of dropping it; fold outbox enqueue failures into the surfaced sync-error state. Surface sync/offline status app-wide (not Spreads-tab-only), and add a Settings **Sync** section showing last-sync time, offline/online state, quarantined-mutation count, and a manual **Retry**. Updates `ErrorHandling.md`'s superseded sync/offline statements.
+- **Spec**: `Documentation/Specs/ReleaseHardening.md` — Requirements › Sync/offline visibility and outbox quarantine
+- **Acceptance Criteria**:
+  - AC1: A mutation whose params fail to build is moved to a quarantined state and remains in the outbox; it is not deleted and is not retried automatically.
+  - AC2: A quarantined mutation does not block subsequent mutations from syncing.
+  - AC3: A sync-error/offline indicator is visible regardless of the active tab.
+  - AC4: Settings shows a Sync section with last-sync time, offline state, quarantined count, and a manual Retry that re-attempts quarantined items.
+  - AC5: Build succeeds; existing sync tests pass.
+- **Tests**:
+  - Unit tests for the quarantine transition (serialization failure → quarantined, not removed), the "does not block the queue" behavior, and the manual-retry path re-attempting quarantined items.
+
+**Progress (commits landed on feature/SESH-30)**
+1. **[SPRD-305][1/n]** — Engine-side quarantine. `SyncMutation` gains persisted `quarantinedAt: Date?` (nil = live; additive optional field, lightweight SwiftData migration; resolves the spec's persistence open question toward surviving relaunch). `push()` fetches only non-quarantined mutations; the params-build failure path sets `quarantinedAt = .now` instead of `context.delete` (the silent-drop fix); enqueue-save failure now sets `status = .error` instead of log-only. New observable `quarantinedCount` refreshed with `refreshOutboxCount()`, and `retryQuarantined()` (clears flag + backoff, saves, `syncNow()` — re-attempts serialization; persistent failures re-quarantine; resolves the retry-semantics open question). 3 tests in `SyncEngineTests` via corrupt-recordData mutations: quarantined-not-dropped (and not re-attempted on later syncs), poison-doesn't-block-valid-push (real repository mutation still lands, status synced), manual retry re-quarantines persistent failures. Suite: 26 tests green.
+2. **[SPRD-305][2/n]** — App-wide visibility + Settings recovery surface. `SyncErrorBanner` (Spreads-only, error-only) replaced by `SyncStatusBanner` in `Views/Navigation/`: covers offline (secondary, cloud icon), error, and quarantined (orange, cloudWarning) in precedence order, renders nothing when healthy, keeps the existing accessibility identifier. Mounted once via `.safeAreaInset(edge: .top)` on `RootNavigationView`'s TabView — visible on every tab; the pager's mount and its `isSyncError` are removed (single decision point). `SettingsView` gains a Sync section: Status (`displayText`), Last Synced (relative, "Never" fallback), and — only when quarantined > 0 — Failed Changes count + "Retry Failed Changes" calling `retryQuarantined()`, with a footer noting failed changes are never discarded. Banner form factor resolved as compact top banner (spec open question). Full suite green (1402). All ACs ✅ — task complete.
+
+### [SPRD-306] Fix: Verify EventKit permission request timing and denied-state degradation - [ ] Done
+
+- **Context**: A permission-request crash or blank timeline on a core feature would be a TestFlight disqualifier; the flow needs verification against the current implementation (backlog TF-06).
+- **Description**: Verify the EventKit calendar permission request fires at the correct time on first access to the day timeline, and that denied/restricted/not-determined states degrade gracefully (timeline placeholder or absent, no crash). Close any gap found within this task.
+- **Spec**: `Documentation/Specs/ReleaseHardening.md` — Requirements › EventKit permission degradation
+- **Acceptance Criteria**:
+  - AC1: On first access to the day timeline with undetermined authorization, the permission request is triggered.
+  - AC2: With authorization denied or restricted, the timeline shows a placeholder or is absent — no crash.
+  - AC3: Granting authorization then returning to a day spread shows events without requiring a relaunch.
+  - AC4: Build succeeds.
+- **Tests**:
+  - Manual verification across authorization states (undetermined → prompt, denied, granted) on a day spread; confirm no crash and correct degradation.
+
+**Progress (commits landed on feature/SESH-30)**
+1. **[SPRD-306][1/n]** — Verification-only close; no code changes required. AC1 ✅: `LiveCalendarEventService.fetchEvents` requests authorization exactly when `.notDetermined`, triggered by `.task(id: spread.id)` on first day/multiday spread access; `NSCalendarsFullAccessUsageDescription` present in Info.plist (the TF-06 missing-purpose-string crash cannot occur). AC2 ✅: denied/restricted → `fetchEvents` returns `[]` → `shouldShowTimelineCard` false → timeline absent (matches the EventKit spec's prescribed degradation); request errors caught, all fetches guarded — no crash path. AC3 ✅: status read live from `EKEventStore` per fetch; navigating back to a day spread re-fetches, no relaunch needed. Deferred (beyond AC): a scenePhase-driven refetch for the sit-on-spread-while-toggling-Settings-access edge. AC4 ✅: suite green (1402). On-device manual pass across the three states (via `xcrun simctl privacy` or Settings) recommended alongside SPRD-304's visual sweep.
+
+---
+
+## Story: Day Spread Composition & Sort Hardening (SESH-32)
+
+Three related day-spread improvements: a deterministic rework of the entry sort options, calendar events integrated into the day entry list, and containing-period open-task cards. Specs: `Documentation/Specs/EntryListGrouping.md` (Sort Hardening section), `Documentation/Specs/DaySpreadComposition.md`.
+
+### [SPRD-307] Refactor: Deterministic sort options — Default chain, real Due Date key - [x] Done
+
+- **Context**: SPRD-301's time sort left `EntrySortOption` with six cases, a day-only `.time` case that forces grouping off through a special section-building path, inconsistent title-only tiebreaks, and a "Due Date" option that compares `sortDate` (assigned date ?? created date) — the task's actual `dueDate` field never participates.
+- **Description**: `EntrySortOption` becomes exactly Default / Priority / Due Date / Type (`.manual`, `.title`, `.time` deleted). Default is the comparator chain `scheduledStart` ascending nil-last → title (localized, case-insensitive) → `createdDate`; every other option applies its primary key then falls through the entire Default chain. Due Date keys on the real `dueDate` via a new `Entry`-level accessor (default `nil`, Task returns its stored field), soonest first, nil last. `makeTimeSortedSections`, the "No time" section, the picker's grouping mutual-exclusion, and `universalOptions` are all deleted — Default is a plain within-bucket comparator valid with any grouping on any spread. `@AppStorage("entrySorting.*")` declared defaults become Default; stale persisted raw values fall back automatically. Grouping options are already `none/list/tag/status/type` — untouched.
+- **Spec**: `Documentation/Specs/EntryListGrouping.md` — Sort Hardening: Deterministic Default Chain [SPRD-307]
+- **Acceptance Criteria**:
+  - AC1: The Order By menu shows exactly Default, Priority, Due Date, Type on every spread; no grouping option is ever disabled by a sort selection.
+  - AC2: Default orders timed entries first (chronological by `scheduledStart`), then untimed alphabetically by title, with `createdDate` breaking title ties — output is identical for any input permutation.
+  - AC3: Due Date orders by the task's actual `dueDate` ascending; entries without a due date (including all events/notes) sort after all due-dated ones.
+  - AC4: Priority and Type keep their primary rankings and resolve all ties through the full Default chain.
+  - AC5: `makeTimeSortedSections`, `EntrySortOption.universalOptions`, and the grouping-exclusion logic are deleted; on a day spread with grouping None + Default, timed entries render on top chronologically (SPRD-301 visual preserved, minus the "No time" header).
+  - AC6: Build succeeds; the SPRD-301 timezone-invariance regression coverage is ported to the Default comparator.
+- **Tests**:
+  - Unit tests on the comparator chain in isolation: chain precedence (time beats title beats createdDate), nil-last for `scheduledStart` and `dueDate`, each option's primary key, full-chain fallthrough on Priority/Due Date/Type ties, timezone-invariance of the time step.
+
+**Progress (commits landed on feature/SESH-32)**
+1. **[SPRD-307][1/n]** — `EntrySortOption` reduced to `default`/`priority`/`dueDate`/`type`; `areInOrder` now non-optional, with every option falling through the full Default chain (`scheduledStart` nil-last → localized title → `createdDate`) via `withDefaultTiebreaker`. `Entry` gains the `dueDate: Date?` accessor (default nil, Task's stored field satisfies it); Due Date sorts by it soonest-first/nil-last — fixing the latent bug where the option compared `sortDate` (assigned ?? created date) and never read `dueDate`. Deleted: `.manual`/`.title`/`.time`, `universalOptions`, `makeTimeSortedSections` + the "No time" section, the picker's `sortingOptions` param and Group-By disable, and Day's grouping-forced-to-None handler. All four spreads' `@AppStorage` sorting defaults now `.default` (stale persisted raw values fall back automatically). Tests: new `EntrySortOptionTests` (9 tests — chain precedence, createdDate tiebreak, permutation determinism across all options, real-dueDate nil-last regression, chain fallthrough for Priority/DueDate/Type, timezone-invariance port); superseded `EntryListTimeSortTests` and the old embedded sort suite removed, multiday `.title` test moved to `.default`. Full suite: TEST SUCCEEDED. All ACs ✅ — single-commit task.
+
+### [SPRD-308] Feature: Calendar events integrated into the day entry list - [x] Done
+
+- **Context**: Events sit in a fixed trailing "Events" section in compact width and are omitted from the list in regular width (the timeline card shows them), so timed tasks and events never line up in one flow outside the removed `.time` sort.
+- **Description**: Events become ordinary entries in the day list's grouping/sorting pipeline in both size classes — "No list"/"No tag" bucket under list/tag grouping, own bucket under status/type, chronological interleave with timed tasks under Default. The fixed "Events" section and the `shouldShowTimelineCard`-conditional `eventConfigurationMap` suppression are deleted; the regular-width timeline card is unchanged and now complements the list. Event rows render no subtitle — title plus the SPRD-300 leading time block only (all-day events: no block, sort as untimed).
+- **Spec**: `Documentation/Specs/DaySpreadComposition.md` — Events integrated into the day entry list [SPRD-308]
+- **Acceptance Criteria**:
+  - AC1: In both compact and regular width, events appear in the day entry list; in regular width the timeline card still renders alongside.
+  - AC2: Under grouping None + Default sort, a timed task scheduled between two events renders between them.
+  - AC3: Under list/tag grouping, events appear in the "No list"/"No tag" bucket; under status/type grouping they occupy their own bucket. No fixed "Events" section remains.
+  - AC4: Event rows show no subtitle — title and leading start/end time block only; all-day events show no time block.
+  - AC5: Build succeeds; existing day-spread section tests updated for the new shape.
+- **Tests**:
+  - Unit tests on the day view model's section building: events bucketed correctly per grouping option, interleave under Default, no trailing Events section, all-day events sorted as untimed.
+- **Dependencies**: SPRD-307
+
+**Progress (commits landed on feature/SESH-32)**
+1. **[SPRD-308][1/n]** — `DaySpreadContentView.ViewModel.makeSections` no longer splits events out: every entry flows through `EntryList.Section.grouped` (nil-bucket under list/tag, own bucket under status/type — events report `.upcoming` — chronological interleave under Default). The fixed "Events" section, its `eventConfigurationMap` parameter, the `shouldShowTimelineCard`-conditional suppression, and the now-unused `sortedByDate()` helper are deleted; the view model exposes one `listConfigurationMap` covering task/note/event in both size classes (timeline card unchanged, now complements the list). `standardEventConfig` drops its `subtitle` closure — event rows are title + the SPRD-300 leading time block; all-day events render title-only and sort as untimed. `Configuration.subtitle` itself stays (the multiday peek panel still sets it) with a doc note. Tests: new `DaySpreadEventIntegrationTests` (5 tests — interleave + no Events section, No-list bucket, type bucket, status bucket, all-day-as-untimed); `EntryListGroupingTests`/`SpreadContentPagerAssemblyTests` updated for the simplified `makeSections` signature. Full suite: TEST SUCCEEDED. All ACs ✅ — single-commit task.
+
+### [SPRD-309] Feature: Containing-period open-task cards on the day spread - [x] Done
+
+- **Context**: Tasks assigned to the containing multiday/month/year spreads are invisible while planning a day, so broader-horizon work drops out of mind unless the user navigates away.
+- **Description**: Below the day's entry list, a second `EntryListView` renders one `SectionStyle.card` section per containing broader-period spread that exists and has open tasks — every `.multiday` spread whose range contains the day, then the containing month, then the year. Cards are titled with the containing spread's display name, contain only open tasks (no notes/events/completed), ordered by the day spread's current sort option with grouping not applied inside cards, and use the standard task row configuration (complete/edit/migrate work in place). Month/year resolve via the O(1) keyed `spreadDataModel(for:period:)`; multiday via a linear containment scan over `spreads`. Nothing renders when no containing spread has open tasks.
+- **Spec**: `Documentation/Specs/DaySpreadComposition.md` — Containing-period open tasks on the day spread [SPRD-309]
+- **Acceptance Criteria**:
+  - AC1: A day contained by an existing month spread with open tasks shows a "July 2026"-style card below the day list holding exactly those open tasks; same for year and each containing multiday spread, ordered multiday → month → year.
+  - AC2: Completed/migrated/cancelled tasks, notes, and events never appear in the cards; a spread with no open tasks (or that doesn't exist) produces no card, and with no qualifying spreads the area renders nothing.
+  - AC3: Tasks inside cards follow the currently selected day-spread sort option; the grouping option has no effect inside cards.
+  - AC4: Completing or migrating a task from a card updates it in place and on its owning spread (standard row actions).
+  - AC5: Spread lookups use the keyed `spreadDataModel(for:period:)` for month/year and a single pass over multiday spreads — no per-entry scans of the full journal.
+  - AC6: Build succeeds; day spread with no containing spreads is visually unchanged.
+- **Tests**:
+  - Unit tests on the card-section builder: open-only filtering, per-period section ordering, multiple containing multiday spreads, omission of empty/missing spreads, sort-option application inside cards.
+- **Dependencies**: SPRD-307
+
+**Progress (commits landed on feature/SESH-32)**
+1. **[SPRD-309][1/n]** — Day view model gains `containingPeriodSections(orderedBy:)`: containing multiday spreads via the new testable `containingMultidaySpreads(for:in:calendar:)` scan (inclusive end day, earliest-starting first), month/year via the O(1) keyed `spreadDataModel(for:period:)`, then `makeContainingPeriodSections` builds one `SectionStyle.card(SpreadTheme.Accent.primary)` section per data model holding only `.open` tasks, sorted by the current sort option, titled with `SpreadDisplayNameFormatter(...).primary`, empty spreads omitted. `DaySpreadContentView` renders these in a second `EntryListView` below the day list (standard task config — complete/edit/migrate work in place), absent entirely when no card qualifies. Also corrected the stale `SectionStyle` doc comment (card sections render inline in order, not extracted above the list) and the spec decision that had relied on it. Tests: new `DaySpreadPeriodContextTests` (6 tests — containment scan + inclusive-end boundary, open-only filter + card style, empty-spread omission + order preservation, empty input, per-card sort). Full suite: TEST SUCCEEDED. All ACs ✅ — single-commit task.
+2. **[SPRD-309][2/n]** (bug fix) — `makeContainingPeriodSections` now filters open tasks by `$0.period == dataModel.spread.period`, not status alone. A broader-period `SpreadDataModel.tasks` aggregates rolled-up sub-period tasks (e.g. a month model includes day-assigned tasks whose day spread isn't created), so the cards were over-including them; the multiday ("this week") card now shows only `.multiday`-assigned tasks, month only `.month`, year only `.year` — mirroring `YearSpreadContentView`'s period-filtered top section. Added a 7th `DaySpreadPeriodContextTests` case asserting rolled-up `.day` tasks are excluded from the month and multiday cards. Suite green (7 in suite).
+
+### [SPRD-312] Fix: Scheduled time can be silently wiped by a stale LWW push - [x] Done
+
+- **Context**: User-reported: task scheduled times set via `TaskEntrySheet` appeared not to persist — "looking back, assigned times aren't being saved." Diagnosed live against `spread-prod` via the Supabase MCP (read-only): `scheduled_time`/`scheduled_time_updated_at` columns and `merge_entry`/`merge_entry_batch` are all current and correct — real times do persist (e.g. several `13:00`-scheduled tasks). But a cluster of tasks with `scheduled_time = NULL` all share the same `scheduled_time_updated_at` (a batch of sequential timestamps ~40ms apart), indicating a mass re-push clobbered real times. Root cause: `scheduledTimeUpdatedAt` was left `nil` on task creation (only the edit path ever stamped it), and both serializer copies (`SyncSerializer.serializeTaskEntry` and the actually-live `DataModel.Task.serialize()` in `Task+SerializableData.swift`) fell back to `?? timestamp` (i.e. `now()`) when nil. So any push carrying a stale/never-set nil time claimed "updated now," which always wins the merge function's `CASE WHEN p_updated_at > existing THEN … END` LWW rule — silently overwriting a real server-side time.
+- **Description**: Two-part fix (Option A of the diagnosis, scoped to `scheduled_time` only — the other `*_updated_at` fields don't share this risk profile since they're rarely legitimately nil). (1) `TaskCoordinator.addTask` now stamps `scheduledTimeUpdatedAt = .now` when a scheduled time is set at creation, so its LWW clock is accurate from the start. (2) Both serializer copies now fall back to `task.createdDate` instead of `timestamp` (`now()`) when `scheduledTimeUpdatedAt` is nil — an untimed task's implicit "last update" floor is its creation, not the moment of an unrelated push, so a stale nil can never outrace a real scheduled time set later on another device. **Notable side-finding** (not fixed here, flagged below): `SyncSerializer.serializeTaskEntry` has zero production callers — the actual outbox push path is exclusively `DataModel.Task.serialize()` (`SwiftDataTaskRepository.swift:122`). Both had to be fixed to keep the two copies in parity, since `DataModelTaskSerializableDataTests` enforces byte-identical output between them as a deliberate migration-era safety net.
+- **Spec**: `Documentation/Specs/TaskScheduledTime.md` — extends the SPRD-296/297 LWW field design
+- **Acceptance Criteria**:
+  - AC1: Creating a day-assigned task with a scheduled time stamps a non-nil `scheduledTimeUpdatedAt` at creation.
+  - AC2: Serializing a task whose `scheduledTimeUpdatedAt` is nil emits `scheduled_time_updated_at` equal to `createdDate`, not the push `timestamp` — verified for both `SyncSerializer.serializeTaskEntry` and `DataModel.Task.serialize()`.
+  - AC3: No behavior change to any other field's `*_updated_at` fallback.
+  - AC4: Build succeeds; full suite passes, including the `DataModelTaskSerializableDataTests` parity tests (which now pass with the updated, still-matching fallback).
+- **Tests**:
+  - `JournalManagerAddTaskTests.testAddTaskWithScheduledTimeStampsUpdatedAt` — create-path stamping.
+  - `SyncSerializerTests.testSerializeTaskEntryScheduledTimeUpdatedAtFallsBackToCreatedDateNotNow` — fallback-to-createdDate regression, contrasted against an unaffected field still falling back to `timestamp`.
+
+**Progress (commits landed on feature/SESH-32)**
+1. **[SPRD-312][1/n]** — Stamped `scheduledTimeUpdatedAt` on create (`TaskCoordinator.addTask`); changed the `scheduled_time_updated_at` fallback from `?? timestamp` to `?? task.createdDate`/`?? createdDate` in both `SyncSerializer.serializeTaskEntry` and the live `DataModel.Task.serialize()` (`Task+SerializableData.swift`) to keep the parity-tested copies identical. 2 new regression tests. Full suite green (1425 tests, including the pre-existing `DataModelTaskSerializableDataTests` parity suite which initially caught the second copy). No DB migration needed — the live schema and merge functions were already correct; this was a pure client LWW-timestamp bug. All ACs ✅ — single-commit task.
+2. **[SPRD-312][2/n]** — The user-visible root cause, found via live-device diagnostics after commit 1 still reproduced: `SyncDateFormatting.parseTimestamp` used a single `ISO8601DateFormatter` with `.withFractionalSeconds`, which *requires* fractional digits when parsing — but Postgres omits a zero fractional part, so a user-picked whole-minute `scheduled_time` came back as `…T21:36:00+00:00` and parsed to nil. Every pull then persisted `scheduledTime = nil` locally (survived cold relaunch) while the server kept the value (commit 1's LWW floor correctly made the client's nil re-pushes lose). `scheduled_time` is the schema's only user-picked whole-second timestamptz — all `Date.now`-derived timestamps carry microsecond digits, which is why nothing else was affected (though any timestamp landing on exactly .000000 shared the latent risk). Fix: `parseTimestamp` now falls back to a non-fractional `ISO8601DateFormatter`. Console-log chain (ENQUEUE value correct → push OK → PULL-APPLY row fractional-less → next statement nils it) plus prod-DB inspection confirmed the full mechanism. 2 new regression tests (`testParseTimestampAcceptsWholeSecondPostgresFormat`, `testPullAppliesWholeSecondScheduledTime` on the exact repro row). Full suite green (1430).
+3. **[SPRD-312][3/n]** — Kept the three diagnosis-phase reproduction tests as permanent coverage (`ScheduledTimeMultidayFallbackTests`): create-with-time, add-time-via-metadata, and the exact `TaskEntrySheet.saveEdits` two-step sequence, all on the day-preferred/multiday-fallback task shape from the live report.
+
+### [SPRD-313] Refactor: Remove the duplicate task-serialization path - [x] Done
+
+- **Context**: `SyncSerializer.serializeTaskEntry` duplicated `DataModel.Task.serialize()` (`Task+SerializableData.swift`, SPRD-252) with **zero production callers** — the outbox push path for tasks exclusively uses `task.serialize(...)` (`SwiftDataTaskRepository`). Task was the only entity with two parallel serialization copies (every other type has exactly one `SyncSerializer.serializeX` path). The duplication caused real harm during SPRD-312: the LWW fix was first applied to the dead copy, and only the byte-parity suite caught that the live path was still broken.
+- **Description**: Delete the dead `serializeTaskEntry` (a pointer comment remains at the site directing to the live path). Consolidate its test coverage onto `Task.serialize()`: `SyncMetadataTests`' five direct value-assertion tests repointed (model-timestamp usage, fallback behavior, cleared-assignment null encoding, model `deletedAt`, parameter `deletedAt` override); the SPRD-312 LWW-floor test in `SyncSerializerTests` repointed and renamed; `DataModelTaskSerializableDataTests`' four now-meaningless parity tests replaced by one direct populated-task field-encoding test (the sole coverage aspect not asserted elsewhere), keeping the entity-type and scheduled-time round-trip tests. No behavior change; `Task+SerializableData.swift` untouched.
+- **Spec**: `Documentation/Specs/Sync.md` — serialization architecture (SPRD-252 `SerializableData` decision)
+- **Acceptance Criteria**:
+  - AC1: `serializeTaskEntry` no longer exists; grep finds only explanatory comments.
+  - AC2: All unique assertions from the removed/repointed tests exercise `Task.serialize()` directly — no coverage lost.
+  - AC3: Build succeeds; full suite passes.
+- **Tests**: Repointed/consolidated as described — net −4 parity +1 direct encoding test.
+
+**Progress (commits landed on feature/SESH-32)**
+1. **[SPRD-313][1/n]** — As described; suite green (1427 = 1430 − 4 parity + 1 direct). Full-suite run required two simulator resets (wedged `iPhone 17 Pro` instance denying app launch — env flake, resolved by pinning the iOS 26.5 device UDID). All ACs ✅ — single-commit task.
+
+### [SPRD-314] Fix: Order multiday before day on the same start date in the pager - [x] Done
+
+- **Context**: User-reported — when a multiday spread and a day spread start on the same date, the pager showed the day spread first; the multiday (the broader container) should precede it.
+- **Description**: `SpreadsTabView.buildYearSpreads` sorted by start-date only, so same-start-date collisions fell to Swift's non-stable sort and preserved the incoming global order (day rank 2 before multiday rank 3). Added a `pagerPeriodTiebreak` (`year, month, multiday, day`) applied only on equal start dates, so the broader container renders first. Scoped to the pager only — the day-disambiguation popover (`SpreadsTabView` covering.sorted, deliberately day-first) and the task-creation spread picker (`Period.sortOrder`) are intentionally left as-is per the user. The global `spreadPeriodSortOrder`/`Period.sortOrder` ranks are untouched.
+- **Spec**: `Documentation/Specs/SpreadNavigation.md` — pager/context-bar ordering
+- **Acceptance Criteria**:
+  - AC1: A day and a multiday sharing a start date order multiday-first in the pager.
+  - AC2: Year/month/multiday/day sharing a start date order broader-first (year, month, multiday, day).
+  - AC3: Distinct start dates still sort by date ascending; the tiebreak only applies on ties.
+  - AC4: Popover and picker ordering unchanged; build + full suite pass.
+- **Tests**: 3 new `SpreadsTabViewNavigatorDataTests` cases (multiday-before-day on tie, four-period broader-first on tie, distinct-dates-sort-by-date).
+
+**Progress (commits landed on feature/SESH-32)**
+1. **[SPRD-314][1/n]** — As described. Full suite green (1430). All ACs ✅ — single-commit task.
+
+## Story: MVP infrastructure — feature flags, observability, closeouts (SESH-31)
+
+Infrastructure bundle from `Documentation/mvp-launch.md` §4/§5/§6.3. New tasks below; the session also picks up existing SPRD-268 (close via calendar-digit exemption per CLAUDE.md's fixed-pixel carve-out + delete commented-out `.font` lines in `EntryRowView`), SPRD-269 (verify Phosphor migration complete, mark Done), and SPRD-274 (overdue card on all spreads), and records the SPRD-230 cut. Note: SPRD-307–309 are claimed by the concurrent Day-spread-composition session (SESH-32) — numbering here starts at 310.
+
+### [SPRD-310] Feature: Layered feature-flag system with Collections hidden as first consumer - [ ] Done
+
+- **Context**: Collections is out of MVP scope and must be hidden without deleting code; future premium/permission gating needs a seam that won't require rework (`mvp-launch.md` §5, decisions 2026-07-11).
+- **Description**: `FeatureFlag` enum (initial cases `collections`, `events` — the latter migrated from the deleted legacy `FeatureFlags.eventsEnabled` constant) + `FeatureFlagProviding`/`FeatureFlagService` resolving `debugOverride ?? entitlement ?? buildDefault`. `EntitlementSource` protocol stubbed to nil for MVP. DEBUG-only overrides via `AppLaunchConfiguration` launch args and a DebugMenuView "Feature Flags" section persisted to UserDefaults (no `#if DEBUG` in production files — hooks pattern). Service constructed in `AppDependencies` factories, exposed on `AppRuntime`, threaded to `RootNavigationView`; the root tab list becomes instance-computed (mirroring the `BuildInfo.allowsDebugUI` Debug-tab precedent) and excludes Collections when the flag is off. Gating is presentation-only — Collections data continues to sync.
+- **Spec**: `Documentation/Specs/FeatureFlags.md` — Requirements
+- **Acceptance Criteria**:
+  - AC1: `FeatureFlagService` resolution precedence is debugOverride → entitlement → buildDefault, verified for all combinations.
+  - AC2: Release-configuration behavior ignores debug overrides entirely (resolution is entitlement ?? buildDefault).
+  - AC3: With `collections` off, the Collections tab is absent from the root tab list; flipping the DEBUG toggle shows/hides it live without relaunch.
+  - AC4: The legacy `FeatureFlags` enum is deleted; `DebugDataService` reads the injected service for `events`; no behavior change.
+  - AC5: Launch argument override (e.g. `-FeatureFlagOverride collections=on`) works in DEBUG.
+  - AC6: Build succeeds; full suite passes.
+- **Tests**:
+  - Unit tests for resolution precedence (stubbed entitlement + override combinations), the flag-aware tab list including/excluding Collections, and the entitlement stub returning nil for every flag.
+
+**Progress (commits landed on feature/SESH-31)**
+1. **[SPRD-310][1/n]** — Core flag types under `Spread/Environment/FeatureFlags/`, no production wiring yet (legacy `FeatureFlags` enum still in place): `FeatureFlag` (cases `collections`/`events`, per-case `buildDefault` both false, `displayName`); `FeatureFlagProviding` (@MainActor DI seam); `EntitlementSource` + `NoEntitlements` nil stub; `FeatureFlagOverrideStore` + `InMemoryFeatureFlagOverrideStore`; `FeatureFlagService` (@Observable @MainActor) resolving `override ?? entitlement ?? buildDefault`, with `setOverride`/`override(for:)` for the debug layer. Observable so the upcoming flag-aware tab list recomputes on toggle; release injects no store so the override layer is inert. Grouped each protocol with its trivial stub (2 types/file ×2) for readability. 7 tests in `FeatureFlagServiceTests` (build-default fallthrough, entitlement-over-default, NoEntitlements-nil, override precedence both directions, set/clear fallback, persistence seam). Suite green. AC1 ✅ AC2 ✅ (resolution + release-inert-by-construction).
+2. **[SPRD-310][2/n]** — Wired the service in and removed the legacy enum. `AppDependencies` gains a `featureFlags: any FeatureFlagProviding` stored property, constructed in all three factories (optional-nil params resolving to `FeatureFlagService()` inside the `@MainActor` bodies — a bare `= FeatureFlagService()` default arg fails since the init is `@MainActor` and default args are nonisolated). `DebugDataService` takes an injected `featureFlags` and its events gate reads `featureFlags.isEnabled(.events)`. Deleted `Spread/Additions/FeatureFlags.swift`; ported its obsolete `eventsEnabled == false` test to `FeatureFlag.events.buildDefault == false` (the surrounding EmptyEventRepository/header tests kept). No behavior change. Full suite green (1415). AC4 ✅
+3. **[SPRD-310][3/n]** — Flag-aware root tab list. Added `Content.visibleCases(featureFlags:)` (@MainActor static) filtering `.collections` out of `allCases` unless `FeatureFlag.collections` is enabled; `RootNavigationView.body` iterates it instead of `allCases`, reading `dependencies.featureFlags.isEnabled` during body evaluation so a debug toggle re-renders the tabs live. Collections hidden by default (build default off). 3 tests in `RootNavigationContentVisibilityTests` (hidden by default, shown via override, reflects runtime toggle). AC3 ✅ (static hide + live-toggle path).
+4. **[SPRD-310][4/n]** — DEBUG override layer (AppDependencies/production untouched). `UserDefaultsFeatureFlagOverrideStore` (`Spread/Debug/`, `#if DEBUG`) persists per-device overrides; `AppLaunchConfiguration` parses `-FeatureFlagOverride <flag>=<on|off>` (all occurrences, unknown/malformed ignored). New `AppRuntimeConfiguration.makeFeatureFlags` hook, populated in `.debug()` to build a `FeatureFlagService` backed by the UserDefaults store with launch-arg overrides layered on top; `AppRuntimeFactory.makeLive` threads it into `makeForLive(featureFlags:)`. Release keeps the default nil hook → store-less service (AC2 preserved). `DebugMenuView` gains a "Feature Flags" section (Toggle per flag via the concrete service downcast, Clear Overrides button) — live because the service is `@Observable`. 4 `FeatureFlagLaunchOverrideTests` for the parser. Full suite green (1422). AC5 ✅, AC3 in-app toggle ✅.
+- All ACs ✅ — task complete (4 increments).
+
+### [SPRD-311] Feature: Observability — Crashlytics error reporting + Supabase product analytics - [ ] Pending
+
+- **Context**: TestFlight without telemetry yields anecdotes, not signal; the hardened error surfaces (SPRD-302/303/305) currently report to no one (`mvp-launch.md` §6.3, stack decided 2026-07-12: hybrid).
+- **Description**: `ErrorReporting` and `AnalyticsTracking` protocols injected via `AppDependencies`; `Test*` no-ops for localhost/previews, `Mock*` recorders for tests; active only in production `DataEnvironment`. Crashlytics (SPM, Crashlytics product only; `FirebaseApp.configure()` isolated in the live reporter's bootstrap; dSYM upload phase) receives crashes and non-fatals from every SPRD-302/303/305 error surface plus quarantine transitions. New Supabase `analytics_events` table (insert-only RLS, folded into `baseline_schema.sql` and applied to spread-prod) receives the v1 taxonomy — `session_start`, `spread_created(period)`, `task_created`, `note_created`, `task_completed`, `task_migrated(granularity)`, `time_sort_selected` — via a dedicated persisted batch queue, deliberately separate from the sync outbox. No PII: enum-derived properties only; activation derived server-side.
+- **Spec**: `Documentation/Specs/Observability.md` — Requirements
+- **Acceptance Criteria**:
+  - AC1: Localhost/preview runs construct no-op reporters; nothing is sent from non-production environments.
+  - AC2: Every user-facing error alert from SPRD-302/303 and sync failure/quarantine path from SPRD-305 also calls `ErrorReporting.report` with non-PII context.
+  - AC3: The v1 events are emitted at their trigger points with stable snake_case names and enum-derived properties; no title/body/name/date content in any payload.
+  - AC4: Events buffer offline and flush in batches to `analytics_events` when connectivity allows; a flush failure retries later without affecting product sync.
+  - AC5: `analytics_events` exists in `baseline_schema.sql` with insert-only RLS and is applied to spread-prod.
+  - AC6: Build succeeds; full suite passes.
+- **Tests**:
+  - Unit tests: queue buffering/batch-flush/retry logic with a mock transport; taxonomy name stability; `Mock*` reporter assertions that the SPRD-302 save-failure and SPRD-305 quarantine paths report; no-op wiring for localhost.
+- **Dependencies**: SPRD-310 (shares the `AppDependencies` injection pass; land flags first to avoid factory-churn conflicts)
+
+---
+
+## Story: Event row styling (SESH-33)
+
+### [SPRD-315] Visual: Event row calendar color + passed-event completed styling - [x] Done
+
+- **Context**: SPRD-301 put EventKit-backed events into the day list as ordinary entry rows, but they render with the neutral icon color and a permanently `.upcoming` status. The calendar color already shown in Day Timeline View should carry over to the row's status icon, and events whose time has passed should read as done, the way completed tasks do.
+- **Description**: Tint the event row's status icon (base + overlay) with the event's calendar color by promoting `iconColor` to an `Entry` protocol requirement (the existing `DataModel.Event` override is currently unreachable through `any Entry`) and adding a view-layer resolved-color rule: non-terminal statuses use `entry.iconColor ?? status.iconColor`; terminal statuses use a subdued (reduced-opacity) `entry.iconColor` when the entry provides a tint, else the status gray. Make `DataModel.Event.status` time-aware for ephemeral EventKit-backed events: a pure `hasEnded(at:calendar:)` predicate (timed: end time < now; all-day: final day fully over), stamped as `@Transient var hasPassed` by `init(calendarEvent:asOf:calendar:)` at the section-build site using `journalManager.appClock.now`; `status` returns `.complete` when passed, else `.upcoming`, so the X overlay, gray icon, and gray title all flow from existing status presentation. Replace `standardEventConfig`'s day-granularity `isGreyedOut` rule with the same predicate. Display-only — nothing persisted or synced; no per-minute timer (re-evaluates on render/AppClock refresh moments).
+- **Spec**: `Documentation/Specs/EventKit.md` — Event Row Styling in Day-List Content (SPRD-315)
+- **Acceptance Criteria**:
+  - AC1: An upcoming or in-progress event row shows its status icon tinted with the event's calendar color, matching the color used for that calendar in Day Timeline View; title and layout are unchanged.
+  - AC2: A timed event whose end time is earlier than now renders as passed: X overlay, gray title, and the icon + overlay in a subdued (reduced-opacity) version of the calendar color — not the status gray.
+  - AC3: An in-progress timed event (started, not ended) still renders as upcoming with calendar tint.
+  - AC4: An all-day event renders as upcoming throughout its final day and completed only once that day is over in the spread's calendar.
+  - AC5: Task and note rows are visually unchanged (their `iconColor` stays `nil`).
+  - AC6: No status is persisted or synced; returning to foreground or crossing a day boundary re-evaluates without a timer.
+  - AC7: Build succeeds; existing entry-row and time-sort tests pass.
+- **Tests**:
+  - Unit tests (fixed clock) for `hasEnded(at:calendar:)`: timed ended, timed in-progress, timed upcoming, all-day on its final day, all-day after the final day.
+  - Unit tests for `status`: `.complete` when stamped passed, `.upcoming` otherwise, and unstamped/persisted events stay `.upcoming`.
+  - Unit test for resolved icon color: full calendar tint for `.upcoming` with `iconColor` set, subdued calendar tint for `.complete` with `iconColor` set, `status.iconColor` fallback when `iconColor` is nil (both terminal and non-terminal).
+  - Colors verified visually in previews/simulator.
+- **Dependencies**: SPRD-301
+
+**Progress (commits landed on feature/SESH-33)**
+1. **[SPRD-315][1/n]** — Passed-status end-to-end: `hasEnded(at:calendar:)` + `status` derivation in `DataModel.Event+Display.swift` (EventKit all-day events use their exclusive next-day-midnight `endDate` as the day-over boundary — per `CalendarEvent.endDate`'s documented convention — while stored date-only events derive it from their inclusive final day); `@Transient hasPassed` stamp on the Event model; `init(calendarEvent:asOf:calendar:)` stamps at construction. All three construction sites updated (day VM and multiday VM via `journalManager.appClock.now`, `SpreadPeekPanelView` via its injected `today`/`calendar`) — one more site than the spec assumed. Dropped `standardEventConfig`'s `isGreyedOut` closure: it was already redundant with SESH-32's concurrent `subtitle` removal, leaving the function with no closures at all — rebased onto that shape and dropped its now-unused `journalManager` parameter too (both call sites updated). 9 tests in `EventPassedStatusTests`. Full suite: 1402 green. Covers the status half of AC2/AC3/AC4 + AC6.
+2. **[SPRD-315][2/n]** — Redundancy cleanup found while auditing for existing "is this event past" logic before starting the tint work: deleted `Spread/Views/Entries/EventPastStatus.swift` (an SPRD-64 utility with zero production callers) and its 16-test suite. It also had a live bug for EventKit all-day events (unconditional `currentDay > eventEndDay`, missing the exclusive-boundary case `[1/n]`'s `hasEnded` already handles correctly) — reason enough not to consolidate onto it. Full suite: 1423 (1439 − 16).
+3. **[SPRD-315][3/n]** — Calendar-color tint. `Entry.iconColor` promoted from an extension-only default to a protocol requirement (the existing `DataModel.Event` override was previously unreachable through `any Entry`, since static dispatch bound to the default). New `Entry.resolvedIconColor` in `EntryStatusPresentation.swift`: non-terminal statuses use `iconColor ?? status.iconColor`; terminal statuses use a subdued (`.opacity(0.45)`) `iconColor` when the entry provides one, else `status.iconColor` — so tasks/notes (`iconColor == nil`) are pixel-identical to before. `EntryRowView.statusButton` now feeds both base and overlay configs from `resolvedIconColor`; title text untouched (still `status.iconColor`). 2 new previews ("Event - Calendar Tint (Upcoming/Passed)") plus 5 tests in `EntryResolvedIconColorTests` (event full tint, event subdued tint, task/cancelled-task/stored-event fallback). Full suite: 1428 green. Covers AC1, tint half of AC2/AC3, AC5.
+- Visual verification not done live in this session — the only available Xcode window was on a different worktree/branch, actively running the app on a physical device, so I didn't risk driving it. Recommend opening `EntryRowView.swift`'s two new previews in this worktree to confirm the tint/subdued colors read correctly before merging.
+- Visual verification completed manually on 2026-07-14: tint/subdued colors and unchanged task/note rows confirmed. All ACs ✅ — task complete.
+
+---
+
+## Story: In Flight task status (SESH-33)
+
+### [SPRD-316] Feature: In Flight task status - [x] Done
+
+- **Context**: Users sometimes take the only action available to them on a task (e.g. submit a request-to-leave form at work) and then have nothing left to do, but the task isn't actually complete — it's waiting on an external party or process. Today the only options are Open (looks untouched) or Complete (premature).
+- **Description**: Add `.inFlight` to `EntryStatus`, task-only by the same convention that already scopes `.migrated`/`.active`/`.upcoming` to specific entry types. `EntryStatus.userEditableTaskStatuses` becomes `[.open, .inFlight, .complete, .cancelled]`, read by both the row tap-cycle (`EntryRowView+Configuration.standardTaskConfig`, `OverdueCardView`) and `TaskEntrySheet`'s Status picker — the two row call sites currently re-declare the cycle as a literal array and switch to referencing the shared static instead. Add `SpreadTheme.Icon.airplaneTilt` (Phosphor `Ph.airplaneTilt`, `.regular` weight). Unlike every other status, In Flight is rendered as a full icon replacement, not an overlay-on-circle: `EntryStatusIcon` gains a rendering path that skips the base shape and overlay entirely when a status resolves to an icon override, rendering only the airplane-tilt icon at `.primary` color. In Flight does not set `isGreyedOut`/`inlineChangesAreLocked` — the row stays full-opacity with an editable title, like Open.
+- **Spec**: `Documentation/Specs/EntryComponents.md` — In Flight Task Status
+- **Acceptance Criteria**:
+  - [x] AC1: `EntryStatus` has a `.inFlight` case; `EntryStatus.userEditableTaskStatuses` is `[.open, .inFlight, .complete, .cancelled]`.
+  - [x] AC2: Tapping a task row's status icon cycles `open → inFlight → complete → cancelled → open`; `EntryRowView+Configuration.standardTaskConfig`, `OverdueCardView`, and `TaskEntrySheet`'s Status picker all read the same `userEditableTaskStatuses` array (no re-declared literal arrays remain).
+  - [x] AC3: The in-flight status icon renders only the airplane-tilt Phosphor icon at `.primary` color — no base circle drawn behind it, no overlay shape composited on top.
+  - [x] AC4: An in-flight task row is not greyed out and its title remains editable (`isGreyedOut`/`inlineChangesAreLocked` both false), matching open/active treatment.
+  - [x] AC5: In-flight tasks are absent from `overdueTaskItems` and from `migrationCandidates`/`migrationDestination`/`DataModel.Task.migrationOptions` results via their existing `status == .open` gates — no new gating code added, verified by regression test.
+  - [x] AC6: The task edit sheet's Status picker shows In Flight as a 4th selectable chip using the airplane-tilt icon; Migrated remains the separate disabled/informational chip.
+  - [x] AC7: Build succeeds; all exhaustive `EntryStatus` switches (production and test, including `Entry.resolvedIconColor` from SPRD-315 and the Debug repository list view) handle `.inFlight` explicitly rather than via a new blanket `default:`.
+  - [x] AC8: Supabase `entries_status_check` and `assignments_status_check` accept `'in_flight'` for task rows — widened in `baseline_schema.sql` and applied to spread-prod — so the first push of an in-flight task or assignment succeeds. (Added during pre-implementation audit: assignments carry task status via `reconcilePreferredAssignment`, so both constraints needed widening, not just `entries`.)
+- **Tests**:
+  - Rotation order: `.open.rotate(in: EntryStatus.userEditableTaskStatuses)` walks open → inFlight → complete → cancelled → open.
+  - Presentation: `.inFlight.overlayShape == nil`; the icon-override resolves to `.airplaneTilt` at `.primary`.
+  - Regression: an in-flight task is absent from `overdueTaskItems(tasks:spreads:)` and from `migrationCandidates(tasks:spreads:to:)`.
+
+**Progress (commits landed on feature/SESH-33)**
+1. **[SPRD-316][1/n]** — Supabase schema: widened `entries_status_check` + `assignments_status_check` to accept `'in_flight'` for task rows, in the squashed `baseline_schema.sql`. Applied to spread-prod as migration `add_in_flight_task_status` (additive; 312 entries / 624 assignments verified unaffected, 0 rows violating the new constraint pre-apply; both constraint definitions verified post-apply) and folded into the baseline per convention. Landed first so every later increment can sync safely. Docs: AC8 added to this block + sync-constraint requirement added to the spec (gap discovered in pre-implementation audit — assignments carry task status via `reconcilePreferredAssignment`, so both constraints needed widening). AC8 ✅
+2. **[SPRD-316][2/n]** — `.inFlight` core, deliberately inert: `EntryStatus.inFlight = "in_flight"` (explicit raw value = sync wire format), `displayName` "In Flight", `inlineChangesAreLocked` false; `SpreadTheme.Icon.airplaneTilt` → `Ph.airplaneTilt` (`.regular`); presentation: `overlayShape` nil, `iconColor` `.primary`, `resolvedIconColor` non-terminal group, new `EntryStatus.iconOverride` (`.inFlight → .airplaneTilt`, nil otherwise); explicit cases in `TaskEntrySheet.statusOptionIcon` + `DebugRepositoryListView.statusIcon`. `userEditableTaskStatuses` untouched → status unreachable from UI; verified no production `EntryStatus.allCases` use, so nothing leaks. 3 tests in `EntryStatusPresentationTests` (override/overlay, color, display + wire format). AC7 ✅, AC4 ✅ (lock false; `isGreyedOut` closures name terminal statuses explicitly so in-flight is excluded by construction)
+3. **[SPRD-316][3/n]** — `EntryStatusIcon` full-replacement rendering: new defaulted `iconOverride: SpreadTheme.Icon?` parameter; when non-nil the body renders only the override glyph (sized/tinted with the same `bseeShapeConfig` fallbacks the base shape uses) — no base circle beneath, no overlay composited. Threaded `status.iconOverride` through the three call sites that show real task statuses (`EntryRowView.statusButton`, `TaskEntrySheet.assignmentHistorySection` — assignments carry task statuses via `reconcilePreferredAssignment` — and `TaskSearchView`); `SpreadPeekPanelView` untouched (hardcodes `.open`, covered by the parameter default). "In Flight" row added to the Task Statuses preview. AC3 ✅
+4. **[SPRD-316][4/n]** — Enable: `userEditableTaskStatuses` → `[.open, .inFlight, .complete, .cancelled]`, doc-commented as the single source of truth whose order IS the tap-cycle order; the two hardcoded `[.open, .complete, .cancelled]` literals (`standardTaskConfig.onStatusIconTap`, `OverdueCardView.handleStatusIconTap`) now read the shared static — verified no other cycle literal remains; the sheet's Status picker picks up the 4th chip automatically. Tests: full tap-cycle walk incl. wraparound (`EntryStatusTests`), updated 4-element picker expectation (`EntryStatusPresentationTests`), overdue-exclusion regression (`OverdueTaskTests` — in-flight task with past-due day assignment absent from `overdueTaskItems`), migration-exclusion regression (`MigrationEligibilityTests` — in-flight task never a candidate). Full suite: 1434 tests / 143 suites green. AC1 ✅ AC2 ✅ AC5 ✅ AC6 ✅ — all ACs done, task complete.
+- Manual visual check recommended: `EntryStatusIcon.swift`'s "Task Statuses" preview (new In Flight row) and a live task row cycled to In Flight, in both color schemes.
+
+---
+
+## Story: Review panel — Inbox / In Flight / Overdue (SESH-33)
+
+### [SPRD-317] Feature: Segmented review panel: Inbox / In Flight / Overdue - [x] Done
+
+- **Context**: The SPRD-289 pull-down panel above the pager only shows overdue tasks. Inbox tasks and the new In Flight tasks (SPRD-316) are equally "needs review outside any one spread" collections with no equivalent surface.
+- **Description**: Generalize the pull-down panel into a three-segment review surface with a custom segmented control (segments in order: Inbox, In Flight, Overdue, each labeled with its live count; session-scoped last-selection memory). The toggle button becomes always-visible with a new `SpreadTheme.Icon.listBullets` icon (replacing `clockCountdown`); the auto-close-on-empty behavior is removed and empty segments render an empty state. Overdue segment is the existing `OverdueCardView` unchanged. In Flight segment shows all `.inFlight` tasks grouped by source spread/Inbox via a new `JournalManager` accessor reusing `TaskReviewSourceKey`, with overdue-style read-only rows (tap navigates; status icon cycles with the 5-second grace period). Inbox segment shows inbox tasks only (notes excluded); row tap opens `TaskEntrySheet` for in-place triage; status icon cycles with the grace period. An in-flight task never double-appears: In Flight wins over both Overdue (existing `.open` gate) and Inbox (unassigned in-flight tasks show only under In Flight).
+- **Spec**: `Documentation/Specs/SpreadNavigation.md` — Review Panel: Inbox / In Flight / Overdue [SPRD-317]
+- **Acceptance Criteria**:
+  - [x] AC1: The panel shows a segmented control with Inbox / In Flight / Overdue in that order, each segment labeled with its live item count.
+  - [x] AC2: The toggle button is always visible with the new `listBullets` Phosphor icon; opening reveals the panel via the existing SPRD-289 slide mechanics; last-viewed segment is restored within the session.
+  - [x] AC3: Empty segments remain selectable and show an empty-state message; the panel no longer auto-closes when collections empty.
+  - [x] AC4: In Flight segment lists all `.inFlight` tasks grouped by source spread/Inbox; row tap navigates to the source spread (notice for Inbox-origin); status-icon tap cycles status with the grace period.
+  - [x] AC5: Inbox segment lists inbox tasks only (no notes); row tap opens `TaskEntrySheet`; status-icon tap cycles with the grace period.
+  - [x] AC6: Overdue segment behavior is unchanged from SPRD-289/SPRD-316.
+  - [x] AC7: No double-appearance: an in-flight task appears only under In Flight — absent from Overdue and from Inbox even when unassigned.
+  - [x] AC8: Build succeeds; existing overdue-panel and entry-list tests pass.
+- **Tests**:
+  - Unit tests for the in-flight items accessor: collection + source-key grouping, and exclusion of non-in-flight statuses.
+  - Unit test for inbox segment derivation: tasks only, notes excluded; unassigned in-flight task excluded (AC7).
+  - Unit test for per-segment counts matching derived collections.
+  - Control styling, empty states, and reveal animation verified via previews/manual inspection.
+- **Dependencies**: SPRD-316
+
+**Progress (commits landed on feature/SESH-33)**
+1. **[SPRD-317][1/n]** — Logic layer. `OverdueTaskItem` → `TaskReviewItem` (shared item shape for all three review segments; type rename only, accessors keep their names). New `JournalRuleEngine.inFlightTaskItems(tasks:spreads:)`: all `.inFlight` tasks, no date gate, source resolved via `candidateSpreads` accepting `.open` **or** `.inFlight` assignment statuses — the `.open`-only `currentDestinationSpread` predicate wrongly reported migrated-while-in-flight tasks (whose assignments get `.inFlight` stamped by `reconcilePreferredAssignment`) as Inbox-sourced; caught by the agent's own test, fixed on the main thread. Shared `taskReviewItem(for:openSpread:)` helper factored out of `overdueTaskItems`' two return points (behavior byte-identical). `JournalManager` gains `inFlightTaskItems`/`inFlightTaskCount`/`reviewInboxTasks` (inbox tasks only, `.inFlight` excluded — the no-double-appearance rule; `inboxEntries`/`inboxCount` semantics untouched). 4 tests in `TaskReviewItemsTests` (status gating, spread-vs-inbox source keys, inbox exclusions asserted on both sides, count parity).
+2. **[SPRD-317][2/n]** — Behavior-preserving card generalization. `OverdueCardView` → `TaskReviewCardView` parameterized by a new `TaskReviewCollection` enum (`.overdue` only so far: id/title/color/items — an enum rather than a closure-struct config to stay `Sendable`-clean under Swift 6). Grace-period mechanics, section building, sorting, and `readOnlyOverdueTaskConfig` wiring unchanged; the source-key snapshot now reads `collection.items(in:)`. Pager renders `TaskReviewCardView(context:collection: .overdue)` — identical UX. All 21 section tests ported to `TaskReviewCardViewTests` with `collection: .overdue`.
+3. **[SPRD-317][3/n]** — The panel. `TaskReviewCollection` gains `.inbox`/`.inFlight` (declaration order = segment order), `segmentTitle(in:)` live counts, `emptyStateMessage`, and `rowTapOverride(context:)` (inbox → `coordinator.showTaskDetail`). `readOnlyOverdueTaskConfig` → `readOnlyReviewTaskConfig` + optional `rowTapOverride` param. `TaskReviewCardView` renders the collection's empty state when sections are empty and passes the row-tap override. New `ReviewPanelView`: `EntrySheetChoiceRow` segmented control + selected card, `.id(selectedCollection)` so grace-period rows can't bleed across segments, session-scoped `@State` selection. Pager: `isReviewPanelOpen`/`reviewPanelHeight` renames, `ReviewPanelToggleButton` always visible with new `SpreadTheme.Icon.listBullets` (no `journalManager` dependency at all now), SPRD-289 auto-close-on-empty removed. 2 tests in `TaskReviewCollectionTests` (segment order/messages; per-segment counts + no-overlap across all three segments — fixture gives the overdue task a real spread since overdue-and-inbox overlap via the unassigned fallback is pre-existing intended behavior, only in-flight is exclusive). Full suite: 1440 tests / 145 suites green. All ACs ✅ — task complete.
+- Manual visual check recommended: panel open/close with the new always-visible toggle, all three segments incl. empty states, segment counts, inbox row → task sheet, in-flight airplane rows, both color schemes.

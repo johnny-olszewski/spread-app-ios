@@ -815,7 +815,7 @@ CREATE TABLE public.entries (
     CONSTRAINT entries_period_check CHECK ((period IS NULL) OR (period = ANY (ARRAY['year'::text, 'month'::text, 'day'::text, 'multiday'::text]))),
     CONSTRAINT entries_priority_check CHECK ((priority IS NULL) OR (priority = ANY (ARRAY['none'::text, 'low'::text, 'medium'::text, 'high'::text]))),
     CONSTRAINT entries_status_check CHECK (
-        ((type = 'task'::text) AND (status = ANY (ARRAY['open'::text, 'complete'::text, 'migrated'::text, 'cancelled'::text])))
+        ((type = 'task'::text) AND (status = ANY (ARRAY['open'::text, 'in_flight'::text, 'complete'::text, 'migrated'::text, 'cancelled'::text])))
         OR ((type = 'note'::text) AND (status = ANY (ARRAY['active'::text, 'migrated'::text])))
     )
 );
@@ -851,7 +851,7 @@ CREATE TABLE public.assignments (
     CONSTRAINT assignments_entry_type_check CHECK ((entry_type = ANY (ARRAY['task'::text, 'note'::text]))),
     CONSTRAINT assignments_period_check CHECK ((period = ANY (ARRAY['year'::text, 'month'::text, 'day'::text, 'multiday'::text]))),
     CONSTRAINT assignments_status_check CHECK (
-        ((entry_type = 'task'::text) AND (status = ANY (ARRAY['open'::text, 'complete'::text, 'migrated'::text, 'cancelled'::text])))
+        ((entry_type = 'task'::text) AND (status = ANY (ARRAY['open'::text, 'in_flight'::text, 'complete'::text, 'migrated'::text, 'cancelled'::text])))
         OR ((entry_type = 'note'::text) AND (status = ANY (ARRAY['active'::text, 'migrated'::text])))
     )
 );

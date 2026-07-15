@@ -18,23 +18,31 @@ struct EntryListView<TrailingContent: View>: View {
     let sections: [EntryList.Section]
     let configurationMap: EntryRowView.ConfigurationMap
     let sectionHeaderTrailingContent: ((EntryList.Section) -> TrailingContent)?
+    /// When set, an `EntryListEmptyStateView` with this message renders in place of the
+    /// rows whenever no section has a renderable entry. Nil preserves the historical
+    /// render-nothing behavior for embedded (inline) usages. [SPRD-304]
+    let emptyStateMessage: String?
 
     init(
         sections: [EntryList.Section],
         configurationMap: EntryRowView.ConfigurationMap,
+        emptyStateMessage: String? = nil,
         @ViewBuilder sectionHeaderTrailingContent: @escaping (EntryList.Section) -> TrailingContent
     ) {
         self.sections = sections
         self.configurationMap = configurationMap
+        self.emptyStateMessage = emptyStateMessage
         self.sectionHeaderTrailingContent = sectionHeaderTrailingContent
     }
 
     init(
         sections: [EntryList.Section],
-        configurationMap: EntryRowView.ConfigurationMap
+        configurationMap: EntryRowView.ConfigurationMap,
+        emptyStateMessage: String? = nil
     ) where TrailingContent == EmptyView {
         self.sections = sections
         self.configurationMap = configurationMap
+        self.emptyStateMessage = emptyStateMessage
         self.sectionHeaderTrailingContent = nil
     }
 
@@ -56,6 +64,14 @@ struct EntryListView<TrailingContent: View>: View {
     // MARK: - Body
 
     var body: some View {
+        if !hasAnyEntries, let emptyStateMessage {
+            EntryListEmptyStateView(message: emptyStateMessage)
+        } else {
+            rowList
+        }
+    }
+
+    private var rowList: some View {
         LazyVStack {
             ForEach(sections) { section in
                 if shouldRender(section) {
@@ -117,19 +133,6 @@ struct EntryListView<TrailingContent: View>: View {
         !renderableEntries(in: section).isEmpty
     }
 
-    // MARK: - Empty State (list style only)
-
-    private var emptyState: some View {
-        ContentUnavailableView {
-            Label {
-                Text("No Entries")
-            } icon: {
-                SpreadTheme.Icon.tray.sized(SpreadTheme.IconSize.large)
-            }
-        } description: {
-            Text("Add tasks or notes to this spread.")
-        }
-    }
 }
 
 // MARK: - Preview
@@ -170,6 +173,14 @@ struct EntryListView<TrailingContent: View>: View {
 }
 
 #Preview("Empty State") {
+    EntryListView(
+        sections: [],
+        configurationMap: [:],
+        emptyStateMessage: "Nothing planned for this day yet. Add a task or note with the + button."
+    )
+}
+
+#Preview("Empty Without Message (renders nothing)") {
     EntryListView(sections: [], configurationMap: [:])
 }
 

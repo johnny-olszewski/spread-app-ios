@@ -112,7 +112,8 @@ private struct TaskSearchRowContent: View {
                 baseShape: EntryType.task.statusIconBaseShape,
                 bseeShapeConfig: .init(color: status.iconColor, iconSize: SpreadTheme.IconSize.medium),
                 overlay: status.overlayShape,
-                overlayConfig: .init(color: status.iconColor, iconSize: SpreadTheme.IconSize.medium)
+                overlayConfig: .init(color: status.iconColor, iconSize: SpreadTheme.IconSize.medium),
+                iconOverride: status.iconOverride
             )
 
             VStack(alignment: .leading, spacing: 2) {

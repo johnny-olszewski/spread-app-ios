@@ -57,6 +57,14 @@ extension AppRuntimeConfiguration {
                         appClock: appClock
                     )
                 )
+            },
+            makeFeatureFlags: {
+                // Persistent debug-menu overrides, with per-launch argument overrides layered on top.
+                let service = FeatureFlagService(overrideStore: UserDefaultsFeatureFlagOverrideStore())
+                for (flag, value) in AppLaunchConfiguration.current.featureFlagOverrides {
+                    service.setOverride(value, for: flag)
+                }
+                return service
             }
         )
     }

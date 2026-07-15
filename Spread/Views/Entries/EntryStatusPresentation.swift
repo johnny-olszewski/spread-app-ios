@@ -6,7 +6,7 @@ extension EntryStatus {
 
     var overlayShape: EntryStatusIcon.OverlayShape? {
         switch self {
-        case .open, .active, .upcoming:
+        case .open, .active, .upcoming, .inFlight:
             return nil
         case .complete:
             return .xmark
@@ -16,13 +16,43 @@ extension EntryStatus {
             return .slash
         }
     }
-    
+
     var iconColor: Color {
         switch self {
-        case .open, .active, .upcoming: return .primary
+        case .open, .active, .upcoming, .inFlight: return .primary
         case .complete, .migrated, .cancelled: return .secondary
         }
     }
+
+    /// A full-replacement icon for statuses that render as a standalone glyph instead of
+    /// the base-shape-plus-overlay composite. Non-nil only for `.inFlight`, which renders
+    /// as the Phosphor airplane-tilt icon with no circle beneath and no overlay. [SPRD-316]
+    var iconOverride: SpreadTheme.Icon? {
+        switch self {
+        case .inFlight: return .airplaneTilt
+        case .open, .active, .complete, .migrated, .cancelled, .upcoming: return nil
+        }
+    }
+}
+
+extension Entry {
+
+    /// The status icon's effective tint: an entry-specific `iconColor` (e.g. an event's
+    /// calendar color) takes precedence over the status's default; once the status is
+    /// terminal, an entry-specific tint renders subdued rather than switching to the
+    /// status gray, so e.g. a passed event reads as "dimmed" rather than "flagged" like a
+    /// cancelled task. Entries with no `iconColor` (tasks, notes) are unaffected either way. [SPRD-315]
+    var resolvedIconColor: Color {
+        switch status {
+        case .open, .active, .upcoming, .inFlight:
+            return iconColor ?? status.iconColor
+        case .complete, .migrated, .cancelled:
+            guard let iconColor else { return status.iconColor }
+            return iconColor.opacity(Self.subduedIconOpacity)
+        }
+    }
+
+    private static var subduedIconOpacity: Double { 0.45 }
 }
 
 extension EntryType {
@@ -42,8 +72,11 @@ extension EntryType {
 
 extension EntryStatus {
 
+    /// The single source of truth for user-editable task statuses, used by BOTH the row
+    /// status-icon tap cycle and the task sheet's Status picker. The order IS the tap-cycle
+    /// order: open → inFlight → complete → cancelled → wraps to open. [SPRD-316]
     static var userEditableTaskStatuses: [EntryStatus] {
-        [.open, .complete, .cancelled]
+        [.open, .inFlight, .complete, .cancelled]
     }
 
     // MARK: Task sheet interaction

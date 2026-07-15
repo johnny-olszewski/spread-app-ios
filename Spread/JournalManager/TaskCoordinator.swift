@@ -51,16 +51,21 @@ struct TaskCoordinator {
         spreads: [DataModel.Spread]
     ) async throws -> DataModel.Task {
         let normalizedDate = date.map { period?.normalizeDate($0, calendar: ruleEngine.calendar) ?? $0 }
+        let effectiveScheduledTime = period == .day ? scheduledTime : nil
         let task = DataModel.Task(
             title: title,
             body: sanitizedBody(body),
             priority: priority,
             dueDate: dueDate?.startOfDay(calendar: ruleEngine.calendar),
-            scheduledTime: period == .day ? scheduledTime : nil,
+            scheduledTime: effectiveScheduledTime,
             date: normalizedDate,
             period: period,
             status: .open,
-            currentAssignments: []
+            currentAssignments: [],
+            // Stamped explicitly (not left nil) so the field has an accurate LWW
+            // clock from creation — see the SPRD-312 fix for why a nil/absent
+            // timestamp here let a later NULL push clobber a real scheduled time.
+            scheduledTimeUpdatedAt: effectiveScheduledTime != nil ? Date.now : nil
         )
 
         if normalizedDate != nil {
